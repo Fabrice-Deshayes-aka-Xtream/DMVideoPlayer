@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <SupportedOSPlatformVersion>10.0.26100.0</SupportedOSPlatformVersion>
+    <UseWPF>False</UseWPF>
+    <StartupObject>DMVideoPlayer.Program</StartupObject>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="DMVideoPlayer.slnx" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.2" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.2" />
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.2.2" />
+    <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="1.1.271" />
+    <PackageReference Include="LibVLCSharp" Version="3.9.5" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
+  </ItemGroup>
+
+  <!-- Exclure les fichiers libvlc pour les architectures non ciblées -->
+  <ItemGroup>
+    <Content Remove="$(NuGetPackageRoot)videolan.libvlc.windows\**\libvlc\win-x86\**\*" />
+    <None Remove="$(NuGetPackageRoot)videolan.libvlc.windows\**\libvlc\win-x86\**\*" />
+  </ItemGroup>
+
+  <!-- Supprimer le dossier win-x86 après le build -->
+  <Target Name="RemoveUnusedLibVLCArchitectures" AfterTargets="Build">
+    <RemoveDir Directories="$(OutputPath)libvlc\win-x86" Condition="Exists('$(OutputPath)libvlc\win-x86')" />
+    <Message Text="Removed unused libvlc\win-x86 directory" Importance="high" />
+  </Target>
+
+</Project>

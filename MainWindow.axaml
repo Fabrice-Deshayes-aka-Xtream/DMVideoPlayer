@@ -1,0 +1,308 @@
+﻿<Window xmlns="https://github.com/avaloniaui"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+xmlns:local="clr-namespace:DMVideoPlayer"
+xmlns:fluent="using:FluentIcons.Avalonia.Fluent"
+mc:Ignorable="d" d:DesignWidth="1050" d:DesignHeight="675"
+x:Class="DMVideoPlayer.MainWindow"
+Title="DM Video Player" Height="675" Width="1000">
+    
+    <Grid>
+        <!-- Video Display Area with Overlays -->
+        <Border Background="Black" 
+                DragDrop.AllowDrop="True"
+                Name="VideoContainer">
+            <Grid>
+                <!-- Video View -->
+                <local:VideoView x:Name="VideoViewControl" DoubleTapped="VideoContainer_DoubleTapped" Tapped="VideoContainer_Tapped" />
+                
+                <!-- Placeholder Text -->
+                <TextBlock Text="Glissez-déposez une vidéo ici"
+                          Name="PlaceholderText"
+                          FontSize="24"
+                          Foreground="White"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          Opacity="0.5"/>
+                
+                <!-- File Name Overlay (Top) -->
+                <Border Background="#CC000000"
+                        Name="FileNameOverlay"
+                        Height="32"
+                        VerticalAlignment="Top"
+                        IsVisible="False">
+                    <TextBlock Name="FileNameLabel"
+                              Text=""
+                              FontSize="12"
+                              Foreground="White"
+                              VerticalAlignment="Center"
+                              Margin="10,0,10,0"/>
+                </Border>
+
+                <!-- Timecode Overlay (Top-Center) -->
+                <Border Background="#66000000"
+                        Name="TimecodeOverlay"
+                        Height="32"
+                        MinWidth="90"
+                        VerticalAlignment="Top"
+                        HorizontalAlignment="Center"
+                        Margin="0,8,0,0"
+                        Padding="12,0,12,0"
+                        IsHitTestVisible="False">
+                    <TextBlock Name="TimecodeLabel"
+                              Text="00:00:00.00"
+                              FontSize="16"
+                              FontWeight="Bold"
+                              Foreground="#FFF"
+                              FontFamily="Consolas, 'Cascadia Mono', 'Fira Mono', 'Liberation Mono', 'Courier New', monospace"
+                              VerticalAlignment="Center"
+                              HorizontalAlignment="Center"/>
+                </Border>
+                
+                <!-- Controls Overlay (Bottom) -->
+                <Border Background="#DD000000"
+                        Name="ControlsOverlay"
+                        VerticalAlignment="Bottom"
+                        Margin="0,0,0,22"
+                        Padding="10,5,10,5"
+                        IsVisible="True">
+                    <StackPanel>
+                        <!-- Progress Bar Area -->
+                        <Grid Margin="0,0,0,5">
+                            <Slider Name="PositionSlider" 
+                                    Minimum="0" 
+                                    Maximum="100" 
+                                    Value="0"
+                                    Focusable="False"
+                                    Height="20"/>
+                        </Grid>
+                        
+                        <!-- Compact Controls Row -->
+                        <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto">
+                            <!-- Bloc 1 (Left): Playback Controls -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
+                                <Button Name="PlayPauseButton" 
+                                        Width="32" 
+                                        Height="32" 
+                                        Padding="0" 
+                                        Focusable="False"
+                                        Classes="playback-button">
+                                    <fluent:SymbolIcon Name="PlayPauseIcon"
+                                                      Symbol="Play"
+                                                      FontSize="16"
+                                                      Foreground="#CCCCCC"/>
+                                </Button>
+                                <Button Name="StopButton" 
+                                        Width="32" 
+                                        Height="32" 
+                                        Padding="0" 
+                                        Focusable="False"
+                                        Classes="playback-button">
+                                    <fluent:SymbolIcon Symbol="Stop"
+                                                      FontSize="16"
+                                                      Foreground="#CCCCCC"/>
+                                </Button>
+                                <Button Name="LoadButton" 
+                                        Width="32" 
+                                        Height="32" 
+                                        Padding="0" 
+                                        Focusable="False"
+                                        Classes="playback-button"
+                                        ToolTip.Tip="Charger une vidéo">
+                                    <fluent:SymbolIcon Symbol="FolderOpen"
+                                                      FontSize="16"
+                                                      Foreground="#CCCCCC"/>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Flexible Space 1 -->
+                            <Grid Grid.Column="1" />
+
+                            <!-- Bloc 3 (Center-Left): Selection Buttons -->
+                            <StackPanel Grid.Column="2" 
+                                       Orientation="Horizontal" 
+                                       Spacing="4" 
+                                       VerticalAlignment="Center">
+                                <Button Name="AudioOutputButton" 
+                                        Width="150" 
+                                        Height="28"
+                                        FontSize="10"
+                                        FontWeight="Bold"
+                                        Padding="0"
+                                        Focusable="False"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Classes="selection-button"
+                                        ToolTip.Tip="Sélectionner la sortie audio">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <fluent:SymbolIcon Symbol="Headphones" 
+                                                          FontSize="14"
+                                                          Foreground="#B0B0B0"
+                                                          VerticalAlignment="Center"/>
+                                        <TextBlock Name="AudioOutputButtonText" 
+                                                  Text="Sortie audio" 
+                                                  VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Name="AudioTrackButton" 
+                                        Width="150" 
+                                        Height="28"
+                                        FontSize="10"
+                                        FontWeight="Bold"
+                                        Padding="0"
+                                        Focusable="False"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Classes="selection-button"
+                                        ToolTip.Tip="Sélectionner la piste audio">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <fluent:SymbolIcon Symbol="Speaker1" 
+                                                          FontSize="14"
+                                                          Foreground="#B0B0B0"
+                                                          VerticalAlignment="Center"/>
+                                        <TextBlock Name="AudioTrackButtonText" 
+                                                  Text="Piste audio" 
+                                                  VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Name="SubtitleButton" 
+                                        Width="150" 
+                                        Height="28"
+                                        FontSize="10"
+                                        FontWeight="Bold"
+                                        Padding="0"
+                                        Focusable="False"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Classes="selection-button"
+                                        ToolTip.Tip="Sélectionner les sous-titres">
+                                    <StackPanel Orientation="Horizontal" Spacing="3">
+                                        <fluent:SymbolIcon Symbol="ClosedCaption" 
+                                                          FontSize="14"
+                                                          Foreground="#B0B0B0"
+                                                          VerticalAlignment="Center"/>
+                                        <TextBlock Name="SubtitleButtonText" 
+                                                  Text="Désactivé" 
+                                                  VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Flexible Space 2 -->
+                            <Grid Grid.Column="3" />
+
+                            <!-- Bloc 4 (Center-Right): Timecode Checkbox + Balance Slider -->
+                            <StackPanel Grid.Column="4" 
+                                       Orientation="Horizontal" 
+                                       Spacing="8" 
+                                       VerticalAlignment="Center">
+                                <!-- Timecode Checkbox -->
+                                <CheckBox Name="TimecodeCheckBox"
+                                          Content="Timecode"
+                                          IsChecked="True"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,6,0"/>
+                                <!-- Balance Lock + Balance Slider -->
+                                <Button Name="BalanceLockButton" 
+                                        Width="24" 
+                                        Height="24" 
+                                        Padding="0" 
+                                        Focusable="False"
+                                        Classes="playback-button"
+                                        VerticalAlignment="Center"
+                                        ToolTip.Tip="Verrouiller/Déverrouiller la balance">
+                                    <fluent:SymbolIcon Name="BalanceLockIcon"
+                                                      Symbol="LockOpen"
+                                                      FontSize="12"
+                                                      Foreground="#CCCCCC"/>
+                                </Button>
+                                <TextBlock Text="L" 
+                                          FontSize="8" 
+                                          FontWeight="Bold"
+                                          Foreground="#808080"
+                                          VerticalAlignment="Center"/>
+                                <Slider Name="BalanceSlider" 
+                                        Width="60" 
+                                        Minimum="-100" 
+                                        Maximum="100" 
+                                        Value="0"
+                                        Focusable="False"
+                                        Classes="balance-slider"
+                                        VerticalAlignment="Center"
+                                        ToolTip.Tip="Balance audio"/>
+                                <TextBlock Text="R" 
+                                          FontSize="8" 
+                                          FontWeight="Bold"
+                                          Foreground="#808080"
+                                          VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <!-- Flexible Space 3 -->
+                            <Grid Grid.Column="5" />
+
+                            <!-- Bloc 2 (Right): Volume Control -->
+                            <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <!-- Volume Button -->
+                                <Button Name="VolumeButton" 
+                                        Width="32" 
+                                        Height="32" 
+                                        Padding="0" 
+                                        Focusable="False"
+                                        Classes="playback-button"
+                                        VerticalAlignment="Center"
+                                        ToolTip.Tip="Activer/Désactiver le son">
+                                    <fluent:SymbolIcon Name="VolumeIcon"
+                                                      Symbol="Speaker2"
+                                                      FontSize="16"
+                                                      Foreground="#CCCCCC"/>
+                                </Button>
+                                
+                                <!-- Volume Slider -->
+                                <Slider Name="VolumeSlider" 
+                                        Width="80" 
+                                        Minimum="0" 
+                                        Maximum="100" 
+                                        Value="100"
+                                        Focusable="False"
+                                        VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+                
+                <!-- Minimal Status Bar (Very Bottom) -->
+                <Border Background="#AA000000"
+                        Name="StatusBar"
+                        Height="18"
+                        VerticalAlignment="Bottom"
+                        IsVisible="False">
+                    <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,0">
+                        <TextBlock Name="StatusLabel"
+                                  Grid.Column="0"
+                                  Text=""
+                                  FontSize="10"
+                                  Foreground="#CCCCCC"
+                                  VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
+                            <TextBlock Name="TimeLabel" 
+                                      Text="00:00:00" 
+                                      FontSize="10"
+                                      Foreground="#CCCCCC"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Text="/" 
+                                      FontSize="10"
+                                      Foreground="#808080"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Name="DurationLabel" 
+                                      Text="00:00:00" 
+                                      FontSize="10"
+                                      Foreground="#CCCCCC"
+                                      VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
