@@ -52,7 +52,7 @@ Title="DM Video Player" Height="675" Width="1000">
                         IsHitTestVisible="False">
                     <TextBlock Name="TimecodeLabel"
                               Text="00:00:00.00"
-                              FontSize="16"
+                              FontSize="24"
                               FontWeight="Bold"
                               Foreground="#FFF"
                               FontFamily="Consolas, 'Cascadia Mono', 'Fira Mono', 'Liberation Mono', 'Courier New', monospace"
@@ -199,7 +199,7 @@ Title="DM Video Player" Height="675" Width="1000">
                                        VerticalAlignment="Center">
                                 <!-- Timecode Checkbox -->
                                 <CheckBox Name="TimecodeCheckBox"
-                                          Content="Timecode"
+                                          Content="TC"
                                           IsChecked="True"
                                           VerticalAlignment="Center"
                                           Margin="0,0,6,0"/>

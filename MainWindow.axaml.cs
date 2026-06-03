@@ -1496,6 +1496,9 @@ namespace DMVideoPlayer
             }, DispatcherPriority.Background);
         }
 
+        private long _lastTimecodeMs = -1;
+        private int _lastTimecodeFrame = -1;
+
         private void UpdateTimer_Tick(object? sender, EventArgs e)
         {
             if (_mediaPlayer == null) return;
@@ -1517,17 +1520,22 @@ namespace DMVideoPlayer
                 _durationLabel.Text = $"{duration:hh\\:mm\\:ss}";
             }
 
-            // Mise à jour du timecode overlay
+            // Mise à jour du timecode overlay (optimisée)
             if (_timecodeLabel != null && _mediaPlayer != null)
             {
-                var time = TimeSpan.FromMilliseconds(_mediaPlayer.Time);
-                // Format timecode HH:MM:SS:FF (frame près)
+                var ms = _mediaPlayer.Time;
                 int frame = 0;
                 if (_mediaPlayer.Fps > 0)
                 {
-                    frame = (int)((_mediaPlayer.Time % 1000) * _mediaPlayer.Fps / 1000);
+                    frame = (int)((ms % 1000) * _mediaPlayer.Fps / 1000);
                 }
-                _timecodeLabel.Text = $"{time:hh\\:mm\\:ss}:{frame:D2}";
+                if (ms != _lastTimecodeMs || frame != _lastTimecodeFrame)
+                {
+                    var time = TimeSpan.FromMilliseconds(ms);
+                    _timecodeLabel.Text = $"{time:hh\\:mm\\:ss}:{frame:D2}";
+                    _lastTimecodeMs = ms;
+                    _lastTimecodeFrame = frame;
+                }
             }
         }
 
@@ -1816,6 +1824,22 @@ namespace DMVideoPlayer
                 var duration = _mediaPlayer.Length;
                 var sliderPosition = _positionSlider.Value / 100.0;
                 var ms = duration > 0 ? (long)(duration * sliderPosition) : 0;
+                var time = TimeSpan.FromMilliseconds(ms);
+                int frame = 0;
+                if (_mediaPlayer.Fps > 0)
+                {
+                    frame = (int)((ms % 1000) * _mediaPlayer.Fps / 1000);
+                }
+                _timecodeLabel.Text = $"{time:hh\\:mm\\:ss}:{frame:D2}";
+            }
+        }
+
+        private void UpdateTimecodeLabelFromPlayer()
+        {
+            if (_timecodeLabel != null && _mediaPlayer != null)
+            {
+                // Récupère la position réelle de lecture en ms
+                var ms = _mediaPlayer.Time;
                 var time = TimeSpan.FromMilliseconds(ms);
                 int frame = 0;
                 if (_mediaPlayer.Fps > 0)
