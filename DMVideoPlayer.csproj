@@ -22,15 +22,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Desktop" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.2" />
-    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="11.2.2" />
-    <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="1.1.271" />
-    <PackageReference Include="LibVLCSharp" Version="3.9.5" />
-    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.21" />
+    <PackageReference Include="Avalonia" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.0" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.18" />
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="12.1.0" />
+    <PackageReference Include="FluentIcons.Avalonia.Fluent" Version="2.1.331" />
+    <PackageReference Include="LibVLCSharp" Version="3.10.0" />
+    <PackageReference Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
   </ItemGroup>
 
   <!-- Exclure les fichiers libvlc pour les architectures non ciblées -->
