@@ -72,6 +72,12 @@ namespace DMVideoPlayer
         private TextBlock? _timecodeLabel;
         private Border? _timecodeOverlay;
         private CheckBox? _timecodeCheckBox;
+        private string _lastTimecodeText = string.Empty;
+
+        // Timecode interpolation
+        private long _lastVlcTime = 0;
+        private System.Diagnostics.Stopwatch _interpolationTimer = new System.Diagnostics.Stopwatch();
+        private bool _isInterpolating = false;
 
         public MainWindow()
         {
@@ -205,7 +211,7 @@ namespace DMVideoPlayer
                 if (_mediaPlayer != null)
                 {
                     _mediaPlayer.Volume = 100;
-                    
+
                     _mediaPlayer.Playing += OnMediaPlayerPlaying;
                     _mediaPlayer.Paused += OnMediaPlayerPaused;
                     _mediaPlayer.Stopped += OnMediaPlayerStopped;
@@ -213,9 +219,9 @@ namespace DMVideoPlayer
                 }
             }
 
-            _updateTimer = new DispatcherTimer
+            _updateTimer = new DispatcherTimer(DispatcherPriority.Render)
             {
-                Interval = TimeSpan.FromMilliseconds(100)
+                Interval = TimeSpan.FromMilliseconds(16) // ~60 FPS for smooth timecode
             };
             _updateTimer.Tick += UpdateTimer_Tick;
         }
@@ -256,8 +262,7 @@ namespace DMVideoPlayer
 
             if (_timecodeCheckBox != null)
             {
-                _timecodeCheckBox.Checked += (s, e) => { UpdateTimecodeVisibility(); SaveSettings(); };
-                _timecodeCheckBox.Unchecked += (s, e) => { UpdateTimecodeVisibility(); SaveSettings(); };
+                _timecodeCheckBox.IsCheckedChanged += (s, e) => { UpdateTimecodeVisibility(); SaveSettings(); };
             }
 
             var balanceSlider = this.FindControl<Slider>("BalanceSlider");
@@ -668,32 +673,44 @@ namespace DMVideoPlayer
             }
         }
 
-        private void DragOver(object? sender, DragEventArgs e)
+        private void DragOver(object? sender, Avalonia.Input.DragEventArgs e)
         {
-            if (e.Data.Contains(DataFormats.Files))
-            {
-                e.DragEffects = DragDropEffects.Copy;
-            }
-            else
-            {
-                e.DragEffects = DragDropEffects.None;
-            }
+            // Always allow copy operation for file drops
+            e.DragEffects = DragDropEffects.Copy;
         }
 
-        private async void Drop(object? sender, DragEventArgs e)
+        private async void Drop(object? sender, Avalonia.Input.DragEventArgs e)
         {
-            if (e.Data.Contains(DataFormats.Files))
+            try
             {
-                var files = e.Data.GetFiles();
-                if (files != null)
+                // Access Data through reflection (Avalonia 12 breaking change workaround)
+                // In future, this should be updated to use proper Avalonia 12 API
+                var dataProperty = e.GetType().GetProperty("Data");
+                if (dataProperty != null)
                 {
-                    var file = files.FirstOrDefault();
-                    if (file != null)
+                    dynamic? data = dataProperty.GetValue(e);
+                    if (data != null)
                     {
-                        var filePath = file.Path.LocalPath;
-                        await LoadAndPlayVideo(filePath);
+                        // Try to get files from the data object
+                        var files = data.GetFiles() as IEnumerable<IStorageItem>;
+                        if (files != null)
+                        {
+                            var file = files.FirstOrDefault();
+                            if (file != null)
+                            {
+                                var filePath = file.TryGetLocalPath();
+                                if (!string.IsNullOrEmpty(filePath))
+                                {
+                                    await LoadAndPlayVideo(filePath);
+                                }
+                            }
+                        }
                     }
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Error handling file drop: {ex.Message}");
             }
         }
 
@@ -1496,9 +1513,6 @@ namespace DMVideoPlayer
             }, DispatcherPriority.Background);
         }
 
-        private long _lastTimecodeMs = -1;
-        private int _lastTimecodeFrame = -1;
-
         private void UpdateTimer_Tick(object? sender, EventArgs e)
         {
             if (_mediaPlayer == null) return;
@@ -1520,28 +1534,61 @@ namespace DMVideoPlayer
                 _durationLabel.Text = $"{duration:hh\\:mm\\:ss}";
             }
 
-            // Mise à jour du timecode overlay (optimisée)
-            if (_timecodeLabel != null && _mediaPlayer != null)
+            // Update timecode at 60 FPS for smooth display
+            var isPlaying = _mediaPlayer.IsPlaying;
+            if (_timecodeLabel != null && isPlaying)
             {
-                var ms = _mediaPlayer.Time;
-                int frame = 0;
-                if (_mediaPlayer.Fps > 0)
+                var vlcTime = _mediaPlayer.Time;
+                var fps = _mediaPlayer.Fps;
+
+                // Interpolate time between VLC updates for smooth display
+                long interpolatedTime;
+
+                if (vlcTime != _lastVlcTime)
                 {
-                    frame = (int)((ms % 1000) * _mediaPlayer.Fps / 1000);
+                    // VLC time changed - reset interpolation
+                    _lastVlcTime = vlcTime;
+                    _interpolationTimer.Restart();
+                    interpolatedTime = vlcTime;
+                    _isInterpolating = true;
                 }
-                if (ms != _lastTimecodeMs || frame != _lastTimecodeFrame)
+                else if (_isInterpolating && _interpolationTimer.IsRunning)
                 {
-                    var time = TimeSpan.FromMilliseconds(ms);
-                    _timecodeLabel.Text = $"{time:hh\\:mm\\:ss}:{frame:D2}";
-                    _lastTimecodeMs = ms;
-                    _lastTimecodeFrame = frame;
+                    // Interpolate based on elapsed time
+                    interpolatedTime = _lastVlcTime + _interpolationTimer.ElapsedMilliseconds;
+                }
+                else
+                {
+                    // Fallback to VLC time
+                    interpolatedTime = vlcTime;
+                }
+
+                // Calculate timecode HH:MM:SS:FF using interpolated time
+                var totalSeconds = (int)(interpolatedTime / 1000);
+                var hours = totalSeconds / 3600;
+                var minutes = (totalSeconds % 3600) / 60;
+                var seconds = totalSeconds % 60;
+                var frameInSecond = fps > 0 ? (int)((interpolatedTime % 1000) * fps / 1000.0) : 0;
+
+                var timecodeText = $"{hours:D2}:{minutes:D2}:{seconds:D2}:{frameInSecond:D2}";
+
+                // Only update if text changed (avoid unnecessary layout)
+                if (timecodeText != _lastTimecodeText)
+                {
+                    _timecodeLabel.Text = timecodeText;
+                    _lastTimecodeText = timecodeText;
                 }
             }
         }
 
         private void OnMediaPlayerPlaying(object? sender, EventArgs e)
         {
+            // Reset interpolation when playback starts
+            _interpolationTimer.Reset();
+            _isInterpolating = false;
+
             _updateTimer?.Start();
+
             Dispatcher.UIThread.Post(() => 
             {
                 UpdatePlayPauseIcon(true);
@@ -1553,6 +1600,11 @@ namespace DMVideoPlayer
         private void OnMediaPlayerPaused(object? sender, EventArgs e)
         {
             _updateTimer?.Stop();
+
+            // Stop interpolation when paused
+            _interpolationTimer.Stop();
+            _isInterpolating = false;
+
             Dispatcher.UIThread.Post(() => 
             {
                 UpdatePlayPauseIcon(false);
@@ -1820,17 +1872,19 @@ namespace DMVideoPlayer
         {
             if (_timecodeLabel != null && _mediaPlayer != null && _positionSlider != null)
             {
-                // Calcule la position en ms à partir du slider
                 var duration = _mediaPlayer.Length;
                 var sliderPosition = _positionSlider.Value / 100.0;
                 var ms = duration > 0 ? (long)(duration * sliderPosition) : 0;
-                var time = TimeSpan.FromMilliseconds(ms);
-                int frame = 0;
-                if (_mediaPlayer.Fps > 0)
-                {
-                    frame = (int)((ms % 1000) * _mediaPlayer.Fps / 1000);
-                }
-                _timecodeLabel.Text = $"{time:hh\\:mm\\:ss}:{frame:D2}";
+                var fps = _mediaPlayer.Fps;
+
+                // Calculate timecode
+                var totalSeconds = (int)(ms / 1000);
+                var hours = totalSeconds / 3600;
+                var minutes = (totalSeconds % 3600) / 60;
+                var seconds = totalSeconds % 60;
+                var frameInSecond = fps > 0 ? (int)((ms % 1000) * fps / 1000.0) : 0;
+
+                _timecodeLabel.Text = $"{hours:D2}:{minutes:D2}:{seconds:D2}:{frameInSecond:D2}";
             }
         }
 
@@ -1838,15 +1892,17 @@ namespace DMVideoPlayer
         {
             if (_timecodeLabel != null && _mediaPlayer != null)
             {
-                // Récupère la position réelle de lecture en ms
                 var ms = _mediaPlayer.Time;
-                var time = TimeSpan.FromMilliseconds(ms);
-                int frame = 0;
-                if (_mediaPlayer.Fps > 0)
-                {
-                    frame = (int)((ms % 1000) * _mediaPlayer.Fps / 1000);
-                }
-                _timecodeLabel.Text = $"{time:hh\\:mm\\:ss}:{frame:D2}";
+                var fps = _mediaPlayer.Fps;
+
+                // Calculate timecode
+                var totalSeconds = (int)(ms / 1000);
+                var hours = totalSeconds / 3600;
+                var minutes = (totalSeconds % 3600) / 60;
+                var seconds = totalSeconds % 60;
+                var frameInSecond = fps > 0 ? (int)((ms % 1000) * fps / 1000.0) : 0;
+
+                _timecodeLabel.Text = $"{hours:D2}:{minutes:D2}:{seconds:D2}:{frameInSecond:D2}";
             }
         }
     }
