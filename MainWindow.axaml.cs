@@ -84,13 +84,11 @@ namespace DMVideoPlayer
 
         // Tempo track beat flash
         private TempoTrack? _tempoTrack = null;
-        private double _lastBeatTime = -1.0;
-        private bool _isBeatFlashActive = false;
-        private DateTime _beatFlashStartTime = DateTime.MinValue;
-        private DateTime _lastFlashRealTime = DateTime.MinValue; // Pour éviter les doubles flashs en temps réel
+        private System.Threading.Timer? _beatTimer = null; // Timer indépendant haute précision
+        private double _nextScheduledBeat = -1.0; // Le prochain beat à flasher
         private double _currentBeatFlashDurationMs = 100.0; // Durée dynamique basée sur le BPM
-        private double _lastVideoPosition = -1.0; // Pour détecter les seeks
         private double _lastDisplayedBpm = -1.0; // Pour lisser l'affichage du BPM
+        private readonly object _beatTimerLock = new object();
 
         public MainWindow()
         {
@@ -100,6 +98,9 @@ namespace DMVideoPlayer
             SetupControls();
             SetupDragAndDrop();
             SetupKeyboardHandling();
+
+            // Timer haute précision pour les beats (indépendant de la vidéo)
+            _beatTimer = new System.Threading.Timer(OnBeatTimerCallback, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         private void InitializeComponent()
@@ -751,9 +752,6 @@ namespace DMVideoPlayer
                 if (_tempoTrack != null && _tempoTrack.IsLoaded)
                 {
                     Debug.WriteLine($"Tempo track loaded from: {IOPath.GetFileName(smtFilePath)}");
-                    _lastBeatTime = -1.0;
-                    _isBeatFlashActive = false;
-                    _lastVideoPosition = -1.0;
                     _lastDisplayedBpm = -1.0;
                 }
                 else
@@ -816,17 +814,23 @@ namespace DMVideoPlayer
                             await Task.Delay(200);
                         }
                     }
-                    
+
                     UpdateAudioTrackList(externalAudioFiles);
                     UpdateAudioTrackSelection();
-                    
+
                     _mediaPlayer.Play();
+
+                    // Synchroniser le beat timer
+                    SyncBeatTimer();
                 }
                 else
                 {
                     _mediaPlayer.Play();
                     await Task.Delay(1000);
                     UpdateAudioTrackList(externalAudioFiles);
+
+                    // Synchroniser le beat timer
+                    SyncBeatTimer();
                 }
 
                 if (_placeholderText != null)
@@ -1266,19 +1270,23 @@ namespace DMVideoPlayer
             // Check if media is actually playing by checking the state
             var state = _mediaPlayer.State;
             Debug.WriteLine($"TogglePlayPause: Current state = {state}");
-            
+
             if (state == VLCState.Playing)
             {
                 Debug.WriteLine("TogglePlayPause: Pausing playback");
                 _mediaPlayer.Pause();
                 _updateTimer?.Stop();
+                StopBeatTimer();
             }
             else
             {
                 Debug.WriteLine($"TogglePlayPause: Starting playback from state {state}");
-                // For any other state (Paused, Stopped, Ended, etc.), try to play
                 _mediaPlayer.Play();
                 _updateTimer?.Start();
+
+                // Synchroniser le beat timer
+                SyncBeatTimer();
+
                 Debug.WriteLine("TogglePlayPause: Play() called and timer started");
             }
         }
@@ -1512,7 +1520,7 @@ namespace DMVideoPlayer
         private void PositionSlider_PointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             Debug.WriteLine("PositionSlider: PointerReleased - Mise à jour de la position");
-            
+
             Dispatcher.UIThread.Post(() =>
             {
                 if (_mediaPlayer != null && _positionSlider != null && _isUserInteractingWithSlider)
@@ -1520,6 +1528,9 @@ namespace DMVideoPlayer
                     float position = (float)(_positionSlider.Value / 100.0);
                     _mediaPlayer.Position = position;
                     Debug.WriteLine($"Position vidéo mise à jour: {position * 100:F1}%");
+
+                    // Resynchroniser le beat timer après le seek
+                    SyncBeatTimer();
                 }
                 UpdateTimecodeLabelFromSlider();
                 _isDraggingPosition = false;
@@ -2002,6 +2013,137 @@ namespace DMVideoPlayer
 
     public partial class MainWindow
     {
+        /// <summary>
+        /// Synchronise le timer de beats avec la position vidéo actuelle.
+        /// À appeler lors du play initial, après un seek, ou après pause/stop.
+        /// </summary>
+        private void SyncBeatTimer()
+        {
+            lock (_beatTimerLock)
+            {
+                // Arrêter le timer actuel
+                _beatTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _nextScheduledBeat = -1.0;
+
+                if (_mediaPlayer == null || !_mediaPlayer.IsPlaying || _tempoTrack == null || !_tempoTrack.IsLoaded)
+                    return;
+
+                var currentTime = _mediaPlayer.Time / 1000.0;
+
+                // Trouver le prochain beat à partir de la position actuelle
+                var nextBeat = _tempoTrack.GetNextBeatTime(currentTime);
+
+                if (nextBeat < 0)
+                    return; // Pas de beats à venir
+
+                // Calculer le délai jusqu'au prochain beat
+                var delay = nextBeat - currentTime;
+
+                if (delay <= 0)
+                {
+                    // Beat déjà passé, chercher le suivant
+                    nextBeat = _tempoTrack.GetNextBeatTime(nextBeat + 0.001);
+                    if (nextBeat < 0)
+                        return;
+                    delay = nextBeat - currentTime;
+                }
+
+                if (delay > 0)
+                {
+                    _nextScheduledBeat = nextBeat;
+                    int delayMs = Math.Max(1, (int)(delay * 1000.0));
+                    _beatTimer?.Change(delayMs, Timeout.Infinite);
+
+                    System.Diagnostics.Debug.WriteLine($"[BEAT SYNC] Next beat at {nextBeat:F3}s (current: {currentTime:F3}s, delay: {delayMs}ms)");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Callback du timer de beats (haute précision, indépendant des frames vidéo)
+        /// </summary>
+        private void OnBeatTimerCallback(object? state)
+        {
+            if (_mediaPlayer == null || !_mediaPlayer.IsPlaying)
+                return;
+
+            lock (_beatTimerLock)
+            {
+                var currentTime = _mediaPlayer.Time / 1000.0;
+                var beatTime = _nextScheduledBeat;
+
+                if (beatTime < 0)
+                    return;
+
+                // Flash le beat
+                var currentBpm = _tempoTrack?.GetBpmAtTime(beatTime) ?? 120.0;
+                var secondsPerBeat = 60.0 / currentBpm;
+                var flashDuration = (int)((secondsPerBeat * 0.15) * 1000.0);
+
+                Dispatcher.UIThread.Post(() =>
+                {
+                    FlashBeatLed(true);
+                    System.Diagnostics.Debug.WriteLine($"✓✓✓ BEAT FLASH at {beatTime:F3}s (current: {currentTime:F3}s, BPM: {currentBpm:F1}, flash: {flashDuration}ms)");
+                });
+
+                // Auto-off après la durée du flash
+                Task.Delay(flashDuration).ContinueWith(_ =>
+                {
+                    Dispatcher.UIThread.Post(() => FlashBeatLed(false));
+                });
+
+                // Planifier le prochain beat
+                ScheduleNextBeat();
+            }
+        }
+
+        /// <summary>
+        /// Planifie le prochain beat après celui qui vient de se produire
+        /// </summary>
+        private void ScheduleNextBeat()
+        {
+            if (_tempoTrack == null || !_tempoTrack.IsLoaded)
+                return;
+
+            var currentBeat = _nextScheduledBeat;
+            if (currentBeat < 0)
+                return;
+
+            // Trouver le beat suivant dans la timeline
+            var nextBeat = _tempoTrack.GetNextBeatTime(currentBeat + 0.001);
+
+            if (nextBeat < 0)
+            {
+                _nextScheduledBeat = -1.0;
+                return; // Plus de beats
+            }
+
+            // Calculer le délai exact entre les deux beats
+            var delay = nextBeat - currentBeat;
+
+            if (delay > 0)
+            {
+                _nextScheduledBeat = nextBeat;
+                int delayMs = Math.Max(1, (int)(delay * 1000.0));
+                _beatTimer?.Change(delayMs, Timeout.Infinite);
+
+                System.Diagnostics.Debug.WriteLine($"[BEAT NEXT] Scheduled beat at {nextBeat:F3}s (delay: {delayMs}ms)");
+            }
+        }
+
+        /// <summary>
+        /// Arrête le timer de beats
+        /// </summary>
+        private void StopBeatTimer()
+        {
+            lock (_beatTimerLock)
+            {
+                _beatTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _nextScheduledBeat = -1.0;
+                FlashBeatLed(false);
+            }
+        }
+
         private void UpdateBeatFlash(double currentTimeInSeconds)
         {
             if (_tempoTrack == null || !_tempoTrack.IsLoaded)
@@ -2011,120 +2153,34 @@ namespace DMVideoPlayer
 
             // Afficher et mettre à jour le BPM (avec lissage)
             var currentBpm = _tempoTrack.GetBpmAtTime(currentTimeInSeconds);
-
-            // Arrondir à l'entier le plus proche
             var roundedBpm = Math.Round(currentBpm);
 
-            // Ne mettre à jour l'affichage que si le changement est >= 1 BPM
             if (_bpmLabelOverlay != null && Math.Abs(roundedBpm - _lastDisplayedBpm) >= 1.0)
             {
                 _lastDisplayedBpm = roundedBpm;
-
                 Dispatcher.UIThread.Post(() =>
                 {
                     if (_bpmLabelOverlay != null)
                     {
                         _bpmLabelOverlay.Text = $"{roundedBpm:F0} BPM";
                     }
-                    UpdateTimecodeVisibility(); // Mettre à jour la visibilité
+                    UpdateTimecodeVisibility();
                 });
             }
             else if (_lastDisplayedBpm < 0)
             {
-                // Première fois : afficher même si pas de changement
                 _lastDisplayedBpm = roundedBpm;
-
                 Dispatcher.UIThread.Post(() =>
                 {
                     if (_bpmLabelOverlay != null)
                     {
                         _bpmLabelOverlay.Text = $"{roundedBpm:F0} BPM";
                     }
-                    UpdateTimecodeVisibility(); // Mettre à jour la visibilité
+                    UpdateTimecodeVisibility();
                 });
             }
 
-            // Détecter un seek (saut discontinu dans la vidéo)
-            const double SEEK_THRESHOLD = 1.0; // Si la position change de plus de 1 seconde, c'est un seek
-
-            if (_lastVideoPosition >= 0)
-            {
-                double timeDelta = Math.Abs(currentTimeInSeconds - _lastVideoPosition);
-
-                // Si la différence de temps est trop grande (> 1s), c'est probablement un seek
-                if (timeDelta > SEEK_THRESHOLD)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Seek detected: jumped from {_lastVideoPosition:F3}s to {currentTimeInSeconds:F3}s (delta: {timeDelta:F3}s)");
-
-                    // Réinitialiser pour permettre la détection immédiate du prochain beat
-                    _lastBeatTime = -1.0;
-                    _isBeatFlashActive = false;
-                    FlashBeatLed(false);
-                }
-            }
-
-            _lastVideoPosition = currentTimeInSeconds;
-
-            // Calculer la durée d'un beat en secondes (currentBpm déjà récupéré ligne 2012)
-            var secondsPerBeat = 60.0 / currentBpm;
-
-            // Fenêtre de détection = 60% d'un cycle de beat
-            // Cela permet de compenser les sauts de frames pendant le décodage vidéo
-            // tout en restant suffisamment précis pour ne pas détecter le même beat plusieurs fois
-            var beatDetectionWindow = secondsPerBeat * 0.60;
-
-            // Chercher le beat le PLUS PROCHE (passé ou futur)
-            // Cela permet de détecter les beats même après un gros saut de décodage vidéo
-            var nearestBeat = _tempoTrack.GetNearestBeatTime(currentTimeInSeconds);
-
-            if (nearestBeat < 0)
-                return; // Pas de beat disponible
-
-            // Calculer la distance au beat le plus proche (peut être négatif si le beat est passé)
-            var distanceToNearestBeat = Math.Abs(nearestBeat - currentTimeInSeconds);
-
-            // Debug : log périodique pour voir ce qui se passe
-            if (_lastBeatTime < 0 || currentTimeInSeconds - _lastBeatTime > 2.0)
-            {
-                System.Diagnostics.Debug.WriteLine($"[Beat Debug] Time: {currentTimeInSeconds:F3}s, BPM: {currentBpm:F1}, Window: {beatDetectionWindow * 1000:F0}ms, Nearest beat: {nearestBeat:F3}s, Distance: {distanceToNearestBeat * 1000:F1}ms");
-            }
-
-            // Si le beat le plus proche est dans la fenêtre ET qu'on ne l'a pas encore détecté
-            if (distanceToNearestBeat <= beatDetectionWindow && nearestBeat != _lastBeatTime)
-            {
-                // Garde-fou : éviter les doubles flashs en temps réel (< 200ms)
-                // Cela peut arriver lors des sauts de décodage vidéo
-                var timeSinceLastFlash = (DateTime.Now - _lastFlashRealTime).TotalMilliseconds;
-                if (timeSinceLastFlash < 200.0)
-                {
-                    // Trop tôt pour un nouveau flash, ignorer
-                    return;
-                }
-
-                // Calculer la durée du flash en fonction du BPM (15% du cycle)
-                // Cela donne un flash court et percutant qui s'adapte au tempo
-                _currentBeatFlashDurationMs = (secondsPerBeat * 0.15) * 1000.0;
-
-                // Déclencher le flash !
-                _lastBeatTime = nearestBeat;
-                _isBeatFlashActive = true;
-                _beatFlashStartTime = DateTime.Now;
-                _lastFlashRealTime = DateTime.Now;
-                FlashBeatLed(true);
-
-                System.Diagnostics.Debug.WriteLine($"✓✓✓ BEAT FLASH at {nearestBeat:F3}s (current: {currentTimeInSeconds:F3}s, BPM: {currentBpm:F1}, distance: {distanceToNearestBeat * 1000:F1}ms, window: {beatDetectionWindow * 1000:F0}ms, flash: {_currentBeatFlashDurationMs:F0}ms)");
-            }
-
-            // Gérer la fin du flash
-            if (_isBeatFlashActive)
-            {
-                var flashDuration = (DateTime.Now - _beatFlashStartTime).TotalMilliseconds;
-                if (flashDuration >= _currentBeatFlashDurationMs)
-                {
-                    _isBeatFlashActive = false;
-                    FlashBeatLed(false);
-                }
-            }
+            // Les beats sont gérés par le timer indépendant, pas ici
         }
 
         private void FlashBeatLed(bool flash)
@@ -2150,15 +2206,7 @@ namespace DMVideoPlayer
             });
         }
 
-        private void ResetBeatFlash()
-        {
-            _isBeatFlashActive = false;
-            _lastBeatTime = -1.0;
-            _lastVideoPosition = -1.0;
-            FlashBeatLed(false);
-        }
-
-        // Ancienne méthode conservée pour compatibilité (vide maintenant)
+        // Anciennes méthodes conservées pour compatibilité (vides maintenant)
         private void FlashVolumeButton(bool flash)
         {
             // Ne fait plus rien - le flash est maintenant sur la LED
@@ -2166,7 +2214,7 @@ namespace DMVideoPlayer
 
         private void ResetVolumeButtonFlash()
         {
-            ResetBeatFlash();
+            // Ne fait plus rien - géré par StopBeatTimer()
         }
     }
 }
