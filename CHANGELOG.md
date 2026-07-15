@@ -4,6 +4,12 @@ All notable changes to DM Video Player will be documented in this file.
 
 ## [Unreleased]
 
+### 📝 Documentation
+
+- Add CHANGELOG.md ([141ad52](https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/commit/141ad52))
+
+## [1.1.0] - 2026-07-15
+
 ### 🐛 Bug Fixes
 
 - Fix very fast pause/play switch break BPM led ([f96b782](https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/commit/f96b782))
@@ -55,5 +61,6 @@ First public release of DM Video Player - A minimalist video player based on VLC
 
 **Note**: This project is a "vibe coding" experiment created with GitHub Copilot assistance, dedicated to Didier Martini, a musician with hearing loss. The player enables musicians to isolate and route specific audio tracks (STEMS) for a more accessible listening experience.
 
-[Unreleased]: https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/compare/1.0.0...HEAD
+[Unreleased]: https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/compare/1.1.0...HEAD
+[1.1.0]: https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/compare/1.0.0...1.1.0
 [1.0.0]: https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/releases/tag/1.0.0
