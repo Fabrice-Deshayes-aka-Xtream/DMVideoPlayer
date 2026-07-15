@@ -160,7 +160,6 @@ namespace DMVideoPlayer
                 _tempoEvents = tempoEvents;
                 ConvertPpqToSeconds();
                 PrecomputeBeatTimes();
-                System.Diagnostics.Debug.WriteLine($"Loaded {_tempoEvents.Count} tempo events and precomputed {_beatTimes.Count} beats from {Path.GetFileName(filePath)}");
             }
         }
 
@@ -224,12 +223,6 @@ namespace DMVideoPlayer
                 {
                     _beatTimes.Add(currentBeatTime);
                 }
-            }
-
-            System.Diagnostics.Debug.WriteLine($"Precomputed {_beatTimes.Count} beat times");
-            if (_beatTimes.Count > 0)
-            {
-                System.Diagnostics.Debug.WriteLine($"First beat: {_beatTimes[0]:F3}s, Last beat: {_beatTimes[_beatTimes.Count - 1]:F3}s");
             }
         }
     }

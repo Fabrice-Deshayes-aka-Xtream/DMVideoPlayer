@@ -86,7 +86,6 @@ namespace DMVideoPlayer
         private TempoTrack? _tempoTrack = null;
         private System.Threading.Timer? _beatTimer = null; // Timer indépendant haute précision
         private double _nextScheduledBeat = -1.0; // Le prochain beat à flasher
-        private double _currentBeatFlashDurationMs = 100.0; // Durée dynamique basée sur le BPM
         private double _lastDisplayedBpm = -1.0; // Pour lisser l'affichage du BPM
         private readonly object _beatTimerLock = new object();
 
@@ -751,12 +750,10 @@ namespace DMVideoPlayer
                 _tempoTrack = TempoTrack.LoadFromFile(smtFilePath);
                 if (_tempoTrack != null && _tempoTrack.IsLoaded)
                 {
-                    Debug.WriteLine($"Tempo track loaded from: {IOPath.GetFileName(smtFilePath)}");
                     _lastDisplayedBpm = -1.0;
                 }
                 else
                 {
-                    Debug.WriteLine("No tempo track found or failed to load");
                     _tempoTrack = null;
                 }
 
@@ -820,7 +817,8 @@ namespace DMVideoPlayer
 
                     _mediaPlayer.Play();
 
-                    // Synchroniser le beat timer
+                    // Synchroniser le beat timer après un court délai
+                    await Task.Delay(50);
                     SyncBeatTimer();
                 }
                 else
@@ -1284,8 +1282,11 @@ namespace DMVideoPlayer
                 _mediaPlayer.Play();
                 _updateTimer?.Start();
 
-                // Synchroniser le beat timer
-                SyncBeatTimer();
+                // Synchroniser le beat timer après un court délai pour laisser le player changer d'état
+                Task.Delay(50).ContinueWith(_ =>
+                {
+                    Dispatcher.UIThread.Post(() => SyncBeatTimer());
+                });
 
                 Debug.WriteLine("TogglePlayPause: Play() called and timer started");
             }
@@ -1529,8 +1530,11 @@ namespace DMVideoPlayer
                     _mediaPlayer.Position = position;
                     Debug.WriteLine($"Position vidéo mise à jour: {position * 100:F1}%");
 
-                    // Resynchroniser le beat timer après le seek
-                    SyncBeatTimer();
+                    // Resynchroniser le beat timer après le seek avec un court délai
+                    Task.Delay(50).ContinueWith(_ =>
+                    {
+                        Dispatcher.UIThread.Post(() => SyncBeatTimer());
+                    });
                 }
                 UpdateTimecodeLabelFromSlider();
                 _isDraggingPosition = false;
@@ -1625,7 +1629,7 @@ namespace DMVideoPlayer
                 }
             }
 
-            // Update beat flash for tempo track
+            // Update BPM display for tempo track
             if (isPlaying && _mediaPlayer.Time > 0)
             {
                 var currentTimeInSeconds = _mediaPlayer.Time / 1000.0;
@@ -1657,9 +1661,6 @@ namespace DMVideoPlayer
             _interpolationTimer.Stop();
             _isInterpolating = false;
 
-            // Reset beat flash when paused
-            ResetVolumeButtonFlash();
-
             Dispatcher.UIThread.Post(() => 
             {
                 UpdatePlayPauseIcon(false);
@@ -1672,9 +1673,6 @@ namespace DMVideoPlayer
         private void OnMediaPlayerStopped(object? sender, EventArgs e)
         {
             _updateTimer?.Stop();
-
-            // Reset beat flash when stopped
-            ResetVolumeButtonFlash();
 
             Dispatcher.UIThread.Post(() =>
             {
@@ -2025,8 +2023,11 @@ namespace DMVideoPlayer
                 _beatTimer?.Change(Timeout.Infinite, Timeout.Infinite);
                 _nextScheduledBeat = -1.0;
 
-                if (_mediaPlayer == null || !_mediaPlayer.IsPlaying || _tempoTrack == null || !_tempoTrack.IsLoaded)
+                if (_mediaPlayer == null || _tempoTrack == null || !_tempoTrack.IsLoaded)
                     return;
+
+                // Note: On ne vérifie pas IsPlaying ici car cette méthode est appelée juste après Play()
+                // et l'état peut ne pas être encore synchronisé
 
                 var currentTime = _mediaPlayer.Time / 1000.0;
 
@@ -2053,8 +2054,6 @@ namespace DMVideoPlayer
                     _nextScheduledBeat = nextBeat;
                     int delayMs = Math.Max(1, (int)(delay * 1000.0));
                     _beatTimer?.Change(delayMs, Timeout.Infinite);
-
-                    System.Diagnostics.Debug.WriteLine($"[BEAT SYNC] Next beat at {nextBeat:F3}s (current: {currentTime:F3}s, delay: {delayMs}ms)");
                 }
             }
         }
@@ -2080,11 +2079,7 @@ namespace DMVideoPlayer
                 var secondsPerBeat = 60.0 / currentBpm;
                 var flashDuration = (int)((secondsPerBeat * 0.15) * 1000.0);
 
-                Dispatcher.UIThread.Post(() =>
-                {
-                    FlashBeatLed(true);
-                    System.Diagnostics.Debug.WriteLine($"✓✓✓ BEAT FLASH at {beatTime:F3}s (current: {currentTime:F3}s, BPM: {currentBpm:F1}, flash: {flashDuration}ms)");
-                });
+                Dispatcher.UIThread.Post(() => FlashBeatLed(true));
 
                 // Auto-off après la durée du flash
                 Task.Delay(flashDuration).ContinueWith(_ =>
@@ -2126,8 +2121,6 @@ namespace DMVideoPlayer
                 _nextScheduledBeat = nextBeat;
                 int delayMs = Math.Max(1, (int)(delay * 1000.0));
                 _beatTimer?.Change(delayMs, Timeout.Infinite);
-
-                System.Diagnostics.Debug.WriteLine($"[BEAT NEXT] Scheduled beat at {nextBeat:F3}s (delay: {delayMs}ms)");
             }
         }
 
@@ -2206,15 +2199,5 @@ namespace DMVideoPlayer
             });
         }
 
-        // Anciennes méthodes conservées pour compatibilité (vides maintenant)
-        private void FlashVolumeButton(bool flash)
-        {
-            // Ne fait plus rien - le flash est maintenant sur la LED
+            }
         }
-
-        private void ResetVolumeButtonFlash()
-        {
-            // Ne fait plus rien - géré par StopBeatTimer()
-        }
-    }
-}
