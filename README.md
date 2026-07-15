@@ -24,6 +24,7 @@ It can also be useful for other musicians wanting to isolate specific instrument
 - Choose audio track to play on which audio outputs
 - Choose subtitles to display (or none)
 - Toggle timecode display
+- Manage Steinberg Cubase Tempo Track *.smt file to display music vidéo tempo (see Naming Rules for Tempo Track below)
 - Keyboard shortcuts (0 to stop, space to play/pause)
 - Mouse shortcuts (video single click to play/pause, double click to toggle fullscreen))
 
@@ -33,6 +34,12 @@ It can also be useful for other musicians wanting to isolate specific instrument
 - Name your extra audio tracks using the following pattern: `<VideoFileNameWithoutExtension>_<stem_name>.<audio_extension>`  
 - For example, if your video is `concert.mp4`, your drum track should be named `concert_drums.wav` or `concert_drums.mp3`.
 - <stem_name> can be whatever you want and will be used as audio track name.
+
+## Namine Rules for Tempo Track (steinberg Cubase *.smt file)
+
+- Place your smt file in the same directory as the video
+- Name it with the same name as the video file (except extension)
+- that's it !
 
 ### Supported Audio/Video Formats
 
