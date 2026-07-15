@@ -1,0 +1,7 @@
+- une option qui permet d'extraire (pas en temps réel, je suis pas idiot), mais qui va extraire la piste de batterie, ou de basse, la renommer, la fou dans le dossier ou se trouve la video, afin qu'elle puisse se charger.
+- metronome qui suit le tempo du morceau. donc capable de lire les tempo map de cubase (qui sont en xml je crois)
+-  PPQ 480 = mesure 2.1.1.0 : 
+  - tempo : 116.019
+  - temps : 0:00:02:01 (2 sec / 1 frame), 23.976 frame par seconde (probablement ou 24)
+- ensuite le metronome doit pouvoir etre reconnu par mon petit moteur a vibration, donc faut pouvoir balancer un son qui va faire un TAC dans la sortie audio (en general, un son de grosse caisse)
+- penser a comment faire pour ressentir aussi la caisse claire. en gros, prendre le midifile du morceau, on extrait les notes midi grosse caisse et caisse claire et faut trouver un son qui va envoyer une difference de vibration pour la grosse caisse et caisse claire, car helas caisse claire trop aigue, donc ne passe pas dans le moteur a vibration 🙁

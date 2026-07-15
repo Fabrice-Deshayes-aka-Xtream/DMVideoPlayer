@@ -15,6 +15,7 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <SelfContained>false</SelfContained>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,12 +38,15 @@
   <ItemGroup>
     <Content Remove="$(NuGetPackageRoot)videolan.libvlc.windows\**\libvlc\win-x86\**\*" />
     <None Remove="$(NuGetPackageRoot)videolan.libvlc.windows\**\libvlc\win-x86\**\*" />
+    <Content Remove="$(NuGetPackageRoot)videolan.libvlc.windows\**\libvlc\win-arm64\**\*" />
+    <None Remove="$(NuGetPackageRoot)videolan.libvlc.windows\**\libvlc\win-arm64\**\*" />
   </ItemGroup>
 
-  <!-- Supprimer le dossier win-x86 après le build -->
+  <!-- Supprimer les dossiers des architectures non ciblées après le build -->
   <Target Name="RemoveUnusedLibVLCArchitectures" AfterTargets="Build">
     <RemoveDir Directories="$(OutputPath)libvlc\win-x86" Condition="Exists('$(OutputPath)libvlc\win-x86')" />
-    <Message Text="Removed unused libvlc\win-x86 directory" Importance="high" />
+    <RemoveDir Directories="$(OutputPath)libvlc\win-arm64" Condition="Exists('$(OutputPath)libvlc\win-arm64')" />
+    <Message Text="Removed unused libvlc directories (win-x86, win-arm64)" Importance="high" />
   </Target>
 
 </Project>
