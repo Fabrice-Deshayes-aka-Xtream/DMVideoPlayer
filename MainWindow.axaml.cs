@@ -700,27 +700,16 @@ namespace DMVideoPlayer
         {
             try
             {
-                // Access Data through reflection (Avalonia 12 breaking change workaround)
-                // In future, this should be updated to use proper Avalonia 12 API
-                var dataProperty = e.GetType().GetProperty("Data");
-                if (dataProperty != null)
+                var files = e.DataTransfer.TryGetFiles();
+                if (files != null)
                 {
-                    dynamic? data = dataProperty.GetValue(e);
-                    if (data != null)
+                    var file = files.FirstOrDefault();
+                    if (file != null)
                     {
-                        // Try to get files from the data object
-                        var files = data.GetFiles() as IEnumerable<IStorageItem>;
-                        if (files != null)
+                        var filePath = file.TryGetLocalPath();
+                        if (!string.IsNullOrEmpty(filePath))
                         {
-                            var file = files.FirstOrDefault();
-                            if (file != null)
-                            {
-                                var filePath = file.TryGetLocalPath();
-                                if (!string.IsNullOrEmpty(filePath))
-                                {
-                                    await LoadAndPlayVideo(filePath);
-                                }
-                            }
+                            await LoadAndPlayVideo(filePath);
                         }
                     }
                 }
