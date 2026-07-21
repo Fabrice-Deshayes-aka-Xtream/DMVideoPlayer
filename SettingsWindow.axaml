@@ -7,9 +7,10 @@ x:Class="DMVideoPlayer.SettingsWindow"
 Title="Param&#232;tres"
 Width="400" Height="460"
 WindowStartupLocation="CenterOwner"
-CanResize="False">
+CanResize="False"
+Background="#2D2D2D">
 
-    <Grid Background="#2D2D2D" Margin="16">
+    <Grid Margin="16">
         <StackPanel Spacing="16" VerticalAlignment="Top">
             <StackPanel Spacing="4">
                 <TextBlock Text="Sortie audio"
