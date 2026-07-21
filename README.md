@@ -13,8 +13,10 @@ Created by **Fabrice Deshayes aka Xtream** for its friend [**Didier Martini**](h
 
 This project is a "vibe coding" experiment, assisted by GitHub Copilot, dedicated to my friend **Didier Martini**, a musician with hearing loss. 
 The goal is to provide a video player that can help musicians like Didier by allowing them to isolate and route specific audio tracks (STEMS) for a more accessible and customizable "listening" experience.
-Typically, Didier extract drums track (STEM) from vidéo and uses this drum track routed to a separate audio output connected to a vibrating Xbox controller attached to his leg, allowing him to feel the tempo despite his hearing impairment.
-This vidéo player allows him to play the keyboard track synchronized to the video he's watching (mainly movie soundtrack) while feeling the tempo/drums through the xbox controller vibrations, even if he can't listen to music anymore.
+Typically, Didier extract drums track (STEM) from vidéo and uses this drum track routed to a separate audio output connected to a vibrating electric engine attached to his leg, 
+allowing him to feel the tempo despite his hearing impairment.
+This vidéo player allows him to play the keyboard track synchronized to the video he's watching (mainly movie soundtrack) while feeling the tempo/drums through the engine vibrations, 
+even if he can't listen to music anymore.
 It can also be useful for other musicians wanting to isolate specific instruments while watching music videos.
 
 ### Key Features
