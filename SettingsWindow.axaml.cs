@@ -77,6 +77,20 @@ namespace DMVideoPlayer
                 defaultVideoDirectoryTextBox.Text = _owner.GetDefaultVideoDirectory();
             }
 
+            var seekStepNumericUpDown = this.FindControl<NumericUpDown>("SeekStepNumericUpDown");
+            if (seekStepNumericUpDown != null)
+            {
+                seekStepNumericUpDown.Value = _owner.GetSeekStepSeconds();
+
+                seekStepNumericUpDown.ValueChanged += (s, e) =>
+                {
+                    if (seekStepNumericUpDown.Value.HasValue)
+                    {
+                        _owner.SetSeekStepSeconds((int)seekStepNumericUpDown.Value.Value);
+                    }
+                };
+            }
+
             var browseButton = this.FindControl<Button>("BrowseDefaultVideoDirectoryButton");
             if (browseButton != null)
             {

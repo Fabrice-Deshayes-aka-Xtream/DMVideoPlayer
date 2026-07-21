@@ -48,6 +48,7 @@ namespace DMVideoPlayer
         private bool _isUpdatingAudioOutput = false;
         private string? _currentVideoFilePath;
         private bool _isUserInteractingWithSlider = false;
+        private int _seekStepSeconds = 5;
         private string? _selectedAudioDeviceId = null;
         private int? _selectedAudioTrackId = null;
         private Button? _audioTrackButton;
@@ -337,6 +338,11 @@ namespace DMVideoPlayer
                 _positionSlider.AddHandler(PointerCaptureLostEvent, PositionSlider_PointerCaptureLost, RoutingStrategies.Tunnel);
             }
 
+            if (_videoContainer != null)
+            {
+                _videoContainer.AddHandler(PointerWheelChangedEvent, VideoContainer_PointerWheelChanged, RoutingStrategies.Tunnel);
+            }
+
             if (_audioTrackComboBox != null)
             {
                 _audioTrackComboBox.SelectionChanged += AudioTrackComboBox_SelectionChanged;
@@ -424,6 +430,9 @@ namespace DMVideoPlayer
 
             // Appliquer le répertoire vidéo par défaut
             _defaultVideoDirectory = settings.DefaultVideoDirectory;
+
+            // Appliquer le pas de déplacement de la molette
+            _seekStepSeconds = settings.SeekStepSeconds > 0 ? settings.SeekStepSeconds : 5;
 
             // Appliquer l'état de la case à cocher BPM
             if (_bpmCheckBox != null)
@@ -1334,6 +1343,17 @@ namespace DMVideoPlayer
             SaveSettings();
         }
 
+        public int GetSeekStepSeconds()
+        {
+            return _seekStepSeconds;
+        }
+
+        public void SetSeekStepSeconds(int seconds)
+        {
+            _seekStepSeconds = seconds < 1 ? 1 : seconds;
+            SaveSettings();
+        }
+
         private string GetEffectiveVideoStartDirectory()
         {
             if (!string.IsNullOrWhiteSpace(_defaultVideoDirectory) && Directory.Exists(_defaultVideoDirectory))
@@ -1610,6 +1630,43 @@ namespace DMVideoPlayer
                 _isUserInteractingWithSlider = false;
                 Debug.WriteLine("PositionSlider: Timer réactivé");
             }, DispatcherPriority.Background);
+        }
+
+        private void VideoContainer_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+        {
+            // Treat wheel usage as user activity to prevent controls from auto-hiding
+            ShowOverlays();
+            _hideControlsTimer?.Stop();
+            if (_currentMedia != null && _mediaPlayer != null && _mediaPlayer.IsPlaying)
+            {
+                _hideControlsTimer?.Start();
+            }
+
+            if (_mediaPlayer == null || _positionSlider == null)
+                return;
+
+            e.Handled = true;
+
+            long length = _mediaPlayer.Length;
+            if (length <= 0)
+                return;
+
+            long seekStepMs = _seekStepSeconds * 1000L;
+            long currentTime = _mediaPlayer.Time;
+            long delta = e.Delta.Y > 0 ? seekStepMs : -seekStepMs;
+            long newTime = Math.Clamp(currentTime + delta, 0, length);
+
+            _mediaPlayer.Time = newTime;
+            _positionSlider.Value = (double)newTime / length * 100;
+
+            Debug.WriteLine($"PositionSlider: Molette - seek à {newTime}ms");
+
+            UpdateTimecodeLabelFromSlider();
+
+            Task.Delay(50).ContinueWith(_ =>
+            {
+                Dispatcher.UIThread.Post(() => SyncBeatTimer());
+            });
         }
 
         private void UpdateTimer_Tick(object? sender, EventArgs e)
@@ -1946,7 +2003,8 @@ namespace DMVideoPlayer
                     IsBalanceLocked = _isBalanceLocked,
                     ShowTimecode = _timecodeCheckBox != null && _timecodeCheckBox.IsChecked == true, // Sauvegarde de l'état timecode
                     ShowBpm = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true, // Sauvegarde de l'état BPM
-                    DefaultVideoDirectory = _defaultVideoDirectory
+                    DefaultVideoDirectory = _defaultVideoDirectory,
+                    SeekStepSeconds = _seekStepSeconds
                 };
 
                 var balanceSlider = this.FindControl<Slider>("BalanceSlider");
@@ -2061,6 +2119,7 @@ namespace DMVideoPlayer
         public bool ShowTimecode { get; set; } = false; // Ajout pour la case à cocher timecode
         public bool ShowBpm { get; set; } = false; // Ajout pour la case à cocher BPM
         public string? DefaultVideoDirectory { get; set; } // Répertoire par défaut pour le chargement des vidéos
+        public int SeekStepSeconds { get; set; } = 5; // Pas de déplacement (en secondes) pour la molette de la souris
     }
 
     public partial class MainWindow

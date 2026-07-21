@@ -44,6 +44,23 @@ Background="#2D2D2D">
             </StackPanel>
 
             <StackPanel Spacing="4">
+                <TextBlock Text="Pas de déplacement (molette de la souris)"
+                           Foreground="#DDDDDD"
+                           FontWeight="Bold"
+                           FontSize="12"/>
+                <NumericUpDown Name="SeekStepNumericUpDown"
+                               Minimum="1"
+                               Maximum="120"
+                               Increment="1"
+                               FormatString="0"
+                               HorizontalAlignment="Stretch"/>
+                <TextBlock Text="Nombre de secondes d'avance/recul lors de l'utilisation de la molette au-dessus de la vidéo."
+                           Foreground="#999999"
+                           FontSize="11"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
                 <TextBlock Text="Répertoire vidéo par défaut"
                            Foreground="#DDDDDD"
                            FontWeight="Bold"

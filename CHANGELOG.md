@@ -11,6 +11,8 @@ All notable changes to DM Video Player will be documented in this file.
 - Move timecode display checkbox to settings windows
 - Add BPM display checkbox to settings windows
 - Add default vidéo folder to settings windows
+- Allow to move in video based on mouse wheel 
+- Add mouse wheel move step in settings
 
 ### 🐛 Bug Fixes
 
