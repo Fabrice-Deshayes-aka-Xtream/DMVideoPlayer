@@ -45,6 +45,7 @@ Le code doit respecter les **standards de qualité d'un projet C# professionnel*
 - Respecter les principes SOLID
 - Éviter la duplication de code (DRY)
 - Commenter uniquement quand nécessaire (code auto-documenté privilégié)
+- TOUT les commentaires dans le code doivent être en ANGLAIS
 - Gestion appropriée des erreurs et exceptions
 - Dispose pattern pour les ressources non managées
 - Async/await pour les opérations asynchrones

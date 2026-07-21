@@ -6,7 +6,13 @@ All notable changes to DM Video Player will be documented in this file.
 
 ### ⭐ New Features
 
+- allow to move timecode / BPM panel
+- adapt displayed components with application width 
+- set a minimum width and height for application
+
 ### 🐛 Bug Fixes
+
+- prevent to play/pause on mouse click if app has not the focus yet
 
 ## [1.2.0] - 2026-07-21
 

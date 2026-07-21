@@ -62,22 +62,39 @@ namespace DMVideoPlayer
         private string? _defaultVideoDirectory;
         private Border? _controlsOverlay;
         private Border? _fileNameOverlay;
-        private Border? _statusBar;
         private TextBlock? _fileNameLabel;
-        private TextBlock? _statusLabel;
         private DispatcherTimer? _hideControlsTimer;
         private Button? _balanceLockButton;
         private SymbolIcon? _balanceLockIcon;
         private Slider? _balanceSlider;
         private bool _isBalanceLocked = false;
+        private Grid? _compactControlsRow;
+        private StackPanel? _essentialButtonsPanel;
+        private StackPanel? _timeDisplayPanel;
+        private StackPanel? _selectionGroupPanel;
+        private StackPanel? _balanceGroupPanel;
+        private Grid? _balanceSpacer;
+        private StackPanel? _volumeGroupPanel;
         private TextBlock? _timecodeLabel;
-        private Border? _timecodeOverlay;
         private CheckBox? _timecodeCheckBox;
         private CheckBox? _bpmCheckBox;
         private string _lastTimecodeText = string.Empty;
-        private Border? _bpmOverlay;
         private TextBlock? _bpmLabelOverlay;
         private Border? _beatLed;
+        private Canvas? _infoPanelCanvas;
+        private Border? _infoPanel;
+        private bool _isDraggingInfoPanel = false;
+        private Point _infoPanelDragPointerStart;
+        private Point _infoPanelDragOrigin;
+        private bool _infoPanelPositionInitialized = false;
+        // Position relative du panneau (0.0 - 1.0) dans l'espace disponible du canvas,
+        // afin de conserver sa position relative lors des changements de taille (ex: plein écran).
+        private double _infoPanelRelativeX = 0.5;
+        private double _infoPanelRelativeY = 0.0;
+        // Hauteur du panneau Controls Overlay mise en cache (même lorsqu'il est masqué),
+        // afin que la zone de déplacement du panneau timecode/BPM reste stable et ne
+        // "saute" pas lorsque le Controls Overlay apparaît ou disparaît.
+        private double _controlsOverlayReservedHeight = 0.0;
 
         // Timecode interpolation
         private long _lastVlcTime = 0;
@@ -102,6 +119,26 @@ namespace DMVideoPlayer
 
             // Timer haute précision pour les beats (indépendant de la vidéo)
             _beatTimer = new System.Threading.Timer(OnBeatTimerCallback, null, Timeout.Infinite, Timeout.Infinite);
+
+            Activated += MainWindow_Activated;
+            Deactivated += MainWindow_Deactivated;
+        }
+
+        private bool _wasWindowFocused = true;
+        private bool _justRegainedFocus = false;
+
+        private void MainWindow_Activated(object? sender, EventArgs e)
+        {
+            if (!_wasWindowFocused)
+            {
+                _justRegainedFocus = true;
+            }
+            _wasWindowFocused = true;
+        }
+
+        private void MainWindow_Deactivated(object? sender, EventArgs e)
+        {
+            _wasWindowFocused = false;
         }
 
         private void InitializeComponent()
@@ -262,23 +299,31 @@ namespace DMVideoPlayer
             _volumeIcon = this.FindControl<SymbolIcon>("VolumeIcon");
             _controlsOverlay = this.FindControl<Border>("ControlsOverlay");
             _fileNameOverlay = this.FindControl<Border>("FileNameOverlay");
-            _statusBar = this.FindControl<Border>("StatusBar");
             _fileNameLabel = this.FindControl<TextBlock>("FileNameLabel");
-            _statusLabel = this.FindControl<TextBlock>("StatusLabel");
             _balanceLockButton = this.FindControl<Button>("BalanceLockButton");
             _balanceLockIcon = this.FindControl<SymbolIcon>("BalanceLockIcon");
             _balanceSlider = this.FindControl<Slider>("BalanceSlider");
+            _compactControlsRow = this.FindControl<Grid>("CompactControlsRow");
+            _essentialButtonsPanel = this.FindControl<StackPanel>("EssentialButtonsPanel");
+            _timeDisplayPanel = this.FindControl<StackPanel>("TimeDisplayPanel");
+            _selectionGroupPanel = this.FindControl<StackPanel>("SelectionGroupPanel");
+            _balanceGroupPanel = this.FindControl<StackPanel>("BalanceGroupPanel");
+            _balanceSpacer = this.FindControl<Grid>("BalanceSpacer");
+            _volumeGroupPanel = this.FindControl<StackPanel>("VolumeGroupPanel");
+            SetupResponsiveControlsOverlay();
             // La case à cocher Timecode est désormais gérée depuis la fenêtre de paramètres
             _timecodeCheckBox = new CheckBox { IsChecked = false };
             // La case à cocher BPM est désormais gérée depuis la fenêtre de paramètres
             _bpmCheckBox = new CheckBox { IsChecked = false };
             // Ajout pour le timecode overlay
             _timecodeLabel = this.FindControl<TextBlock>("TimecodeLabel");
-            _timecodeOverlay = this.FindControl<Border>("TimecodeOverlay");
             // Ajout pour BPM overlay et beat LED
-            _bpmOverlay = this.FindControl<Border>("BpmOverlay");
             _bpmLabelOverlay = this.FindControl<TextBlock>("BpmLabelOverlay");
             _beatLed = this.FindControl<Border>("BeatLed");
+            // Panneau déplaçable regroupant Timecode, BPM et LED
+            _infoPanelCanvas = this.FindControl<Canvas>("InfoPanelCanvas");
+            _infoPanel = this.FindControl<Border>("InfoPanel");
+            SetupInfoPanelDrag();
 
             if (_timecodeCheckBox != null)
             {
@@ -388,6 +433,18 @@ namespace DMVideoPlayer
 
         private void ApplySettings(AppSettings settings)
         {
+            // Restaurer la position sauvegardée du panneau timecode/BPM en tout premier,
+            // AVANT d'affecter les cases à cocher ci-dessous : ces dernières déclenchent
+            // leur gestionnaire IsCheckedChanged qui appelle SaveSettings(), ce qui écrasait
+            // la position enregistrée par les valeurs par défaut si elle n'était pas déjà en mémoire.
+            if (settings.InfoPanelRelativeX.HasValue && settings.InfoPanelRelativeY.HasValue)
+            {
+                _infoPanelRelativeX = settings.InfoPanelRelativeX.Value;
+                _infoPanelRelativeY = settings.InfoPanelRelativeY.Value;
+                _infoPanelPositionInitialized = true;
+                ApplyInfoPanelRelativePosition();
+            }
+
             // Apply volume
             if (_volumeSlider != null)
             {
@@ -1421,10 +1478,14 @@ namespace DMVideoPlayer
             if (_mediaPlayer == null || _mediaPlayer.Media == null) return;
 
             Debug.WriteLine($"StopAndResetPosition: Current state = {_mediaPlayer.State}");
-            
-            // Pause the playback first
-            _mediaPlayer.Pause();
-            
+
+            // Pause the playback first, but only if it's actually playing.
+            // Calling Pause() while already paused/stopped toggles playback and would start it again.
+            if (_mediaPlayer.State == VLCState.Playing)
+            {
+                _mediaPlayer.Pause();
+            }
+
             Debug.WriteLine("StopAndResetPosition: Paused, now resetting position");
             
             // Reset position to beginning
@@ -1830,6 +1891,14 @@ namespace DMVideoPlayer
 
         private void VideoContainer_Tapped(object? sender, TappedEventArgs e)
         {
+            // Ignore le clic si celui-ci vient juste de redonner le focus à la fenêtre :
+            // on veut simplement récupérer le focus, pas basculer play/pause.
+            if (_justRegainedFocus)
+            {
+                _justRegainedFocus = false;
+                return;
+            }
+
             // Démarre un timer pour différer l'action du simple clic
             _doubleClickDetected = false;
             _singleClickTimer?.Stop();
@@ -1907,11 +1976,7 @@ namespace DMVideoPlayer
             if (_fileNameOverlay != null && !string.IsNullOrEmpty(_currentVideoFilePath))
                 _fileNameOverlay.IsVisible = true;
             
-            // Only show status bar if there's media playing
-            if (_statusBar != null && _currentMedia != null)
-                _statusBar.IsVisible = true;
-
-            // Afficher le timecode overlay selon la case à cocher (jamais caché automatiquement)
+            // Afficher le timecode overlay
             UpdateTimecodeVisibility();
         }
 
@@ -1930,11 +1995,8 @@ namespace DMVideoPlayer
             
             if (_fileNameOverlay != null)
                 _fileNameOverlay.IsVisible = false;
-            
-            if (_statusBar != null)
-                _statusBar.IsVisible = false;
 
-            // Ne plus masquer le timecode ici : sa visibilité est gérée par UpdateTimecodeVisibility()
+            // Ne plus masquer le timecode ici
         }
 
         private void UpdateFileNameDisplay(string filePath)
@@ -1944,14 +2006,6 @@ namespace DMVideoPlayer
                 _fileNameLabel.Text = IOPath.GetFileName(filePath);
                 if (_fileNameOverlay != null)
                     _fileNameOverlay.IsVisible = true;
-            }
-        }
-
-        private void UpdateStatusLabel(string text)
-        {
-            if (_statusLabel != null)
-            {
-                _statusLabel.Text = text;
             }
         }
 
@@ -2004,7 +2058,9 @@ namespace DMVideoPlayer
                     ShowTimecode = _timecodeCheckBox != null && _timecodeCheckBox.IsChecked == true, // Sauvegarde de l'état timecode
                     ShowBpm = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true, // Sauvegarde de l'état BPM
                     DefaultVideoDirectory = _defaultVideoDirectory,
-                    SeekStepSeconds = _seekStepSeconds
+                    SeekStepSeconds = _seekStepSeconds,
+                    InfoPanelRelativeX = _infoPanelRelativeX,
+                    InfoPanelRelativeY = _infoPanelRelativeY
                 };
 
                 var balanceSlider = this.FindControl<Slider>("BalanceSlider");
@@ -2028,16 +2084,198 @@ namespace DMVideoPlayer
         
         private void UpdateTimecodeVisibility()
         {
-            if (_timecodeOverlay != null && _timecodeCheckBox != null)
+            if (_timecodeLabel != null && _timecodeCheckBox != null)
             {
-                _timecodeOverlay.IsVisible = _timecodeCheckBox.IsChecked == true;
+                _timecodeLabel.IsVisible = _timecodeCheckBox.IsChecked == true;
             }
 
-            // La visibilité du BPM overlay est désormais indépendante du timecode
-            if (_bpmOverlay != null && _bpmCheckBox != null)
+            // La visibilité du BPM est désormais indépendante du timecode
+            bool bpmVisible = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true && _tempoTrack != null && _tempoTrack.IsLoaded;
+            if (_bpmLabelOverlay != null)
             {
-                _bpmOverlay.IsVisible = _bpmCheckBox.IsChecked == true && _tempoTrack != null && _tempoTrack.IsLoaded;
+                _bpmLabelOverlay.IsVisible = bpmVisible;
             }
+            if (_beatLed != null)
+            {
+                _beatLed.IsVisible = bpmVisible;
+            }
+
+            // Le panneau reste visible tant qu'au moins un élément est affiché
+            if (_infoPanel != null)
+            {
+                bool timecodeVisible = _timecodeLabel?.IsVisible == true;
+                _infoPanel.IsVisible = timecodeVisible || bpmVisible;
+            }
+        }
+
+        private void SetupInfoPanelDrag()
+        {
+            if (_infoPanel == null || _infoPanelCanvas == null)
+            {
+                return;
+            }
+
+            _infoPanel.PointerPressed += InfoPanelDragHandle_PointerPressed;
+            _infoPanel.PointerMoved += InfoPanelDragHandle_PointerMoved;
+            _infoPanel.PointerReleased += InfoPanelDragHandle_PointerReleased;
+            _infoPanelCanvas.SizeChanged += InfoPanelCanvas_SizeChanged;
+            _infoPanel.SizeChanged += InfoPanelCanvas_SizeChanged;
+
+            if (_controlsOverlay != null)
+            {
+                _controlsOverlay.SizeChanged += ControlsOverlay_SizeChanged;
+                if (_controlsOverlay.Bounds.Height > 0)
+                {
+                    _controlsOverlayReservedHeight = _controlsOverlay.Bounds.Height;
+                }
+            }
+        }
+
+        private void ControlsOverlay_SizeChanged(object? sender, SizeChangedEventArgs e)
+        {
+            if (_controlsOverlay == null || _controlsOverlay.Bounds.Height <= 0)
+            {
+                return;
+            }
+
+            if (Math.Abs(_controlsOverlayReservedHeight - _controlsOverlay.Bounds.Height) > 0.01)
+            {
+                _controlsOverlayReservedHeight = _controlsOverlay.Bounds.Height;
+                ApplyInfoPanelRelativePosition();
+            }
+        }
+
+        private void InfoPanelCanvas_SizeChanged(object? sender, SizeChangedEventArgs e)
+        {
+            if (!_infoPanelPositionInitialized)
+            {
+                CenterInfoPanelIfNeeded();
+            }
+            else
+            {
+                ApplyInfoPanelRelativePosition();
+            }
+        }
+
+        private void CenterInfoPanelIfNeeded()
+        {
+            if (_infoPanelPositionInitialized || _infoPanelCanvas == null || _infoPanel == null)
+            {
+                return;
+            }
+
+            if (_infoPanelCanvas.Bounds.Width <= 0 || _infoPanel.Bounds.Width <= 0)
+            {
+                return;
+            }
+
+            double maxTop = Math.Max(0, _infoPanelCanvas.Bounds.Height - _infoPanel.Bounds.Height);
+            _infoPanelRelativeX = 0.5;
+            _infoPanelRelativeY = maxTop > 0 ? Math.Min(1.0, 8.0 / maxTop) : 0.0;
+            ApplyInfoPanelRelativePosition();
+            _infoPanelPositionInitialized = true;
+        }
+
+        private void ApplyInfoPanelRelativePosition()
+        {
+            if (_infoPanelCanvas == null || _infoPanel == null)
+            {
+                return;
+            }
+
+            if (_infoPanelCanvas.Bounds.Width <= 0 || _infoPanelCanvas.Bounds.Height <= 0)
+            {
+                return;
+            }
+
+            double maxLeft = Math.Max(0, _infoPanelCanvas.Bounds.Width - _infoPanel.Bounds.Width);
+            double maxTop = GetInfoPanelMaxTop();
+
+            double left = maxLeft * _infoPanelRelativeX;
+            double top = maxTop * _infoPanelRelativeY;
+
+            Canvas.SetLeft(_infoPanel, left);
+            Canvas.SetTop(_infoPanel, top);
+        }
+
+        /// <summary>
+        /// Calcule la position verticale maximale autorisée pour le panneau d'info,
+        /// afin d'empêcher de le déplacer sous le panneau Controls Overlay (ce qui
+        /// rendrait le panneau difficile à récupérer pour le repositionner ensuite).
+        /// </summary>
+        private double GetInfoPanelMaxTop()
+        {
+            if (_infoPanelCanvas == null || _infoPanel == null)
+            {
+                return 0;
+            }
+
+            double maxTop = Math.Max(0, _infoPanelCanvas.Bounds.Height - _infoPanel.Bounds.Height);
+
+            if (_controlsOverlayReservedHeight > 0)
+            {
+                double controlsOverlayTop = _infoPanelCanvas.Bounds.Height - _controlsOverlayReservedHeight;
+                double limitedMaxTop = controlsOverlayTop - _infoPanel.Bounds.Height;
+                maxTop = Math.Max(0, Math.Min(maxTop, limitedMaxTop));
+            }
+
+            return maxTop;
+        }
+
+        private void InfoPanelDragHandle_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (_infoPanel == null)
+            {
+                return;
+            }
+
+            _isDraggingInfoPanel = true;
+            _infoPanelDragPointerStart = e.GetPosition(this);
+            _infoPanelDragOrigin = new Point(Canvas.GetLeft(_infoPanel), Canvas.GetTop(_infoPanel));
+            e.Pointer.Capture(_infoPanel);
+            e.Handled = true;
+        }
+
+        private void InfoPanelDragHandle_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            if (!_isDraggingInfoPanel || _infoPanel == null || _infoPanelCanvas == null)
+            {
+                return;
+            }
+
+            var currentPosition = e.GetPosition(this);
+            var delta = currentPosition - _infoPanelDragPointerStart;
+            double newLeft = _infoPanelDragOrigin.X + delta.X;
+            double newTop = _infoPanelDragOrigin.Y + delta.Y;
+
+            double maxLeft = Math.Max(0, _infoPanelCanvas.Bounds.Width - _infoPanel.Bounds.Width);
+            double maxTop = GetInfoPanelMaxTop();
+
+            newLeft = Math.Min(Math.Max(0, newLeft), maxLeft);
+            newTop = Math.Min(Math.Max(0, newTop), maxTop);
+
+            Canvas.SetLeft(_infoPanel, newLeft);
+            Canvas.SetTop(_infoPanel, newTop);
+
+            // Mémorise la position en pourcentage de l'espace disponible pour la conserver
+            // lors des changements de taille de la fenêtre (ex: bascule plein écran).
+            _infoPanelRelativeX = maxLeft > 0 ? newLeft / maxLeft : 0.5;
+            _infoPanelRelativeY = maxTop > 0 ? newTop / maxTop : 0.0;
+
+            e.Handled = true;
+        }
+
+        private void InfoPanelDragHandle_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (!_isDraggingInfoPanel)
+            {
+                return;
+            }
+
+            _isDraggingInfoPanel = false;
+            e.Pointer.Capture(null);
+            e.Handled = true;
+            SaveSettings();
         }
 
         private void UpdateTimecodeLabelFromSlider()
@@ -2120,6 +2358,8 @@ namespace DMVideoPlayer
         public bool ShowBpm { get; set; } = false; // Ajout pour la case à cocher BPM
         public string? DefaultVideoDirectory { get; set; } // Répertoire par défaut pour le chargement des vidéos
         public int SeekStepSeconds { get; set; } = 5; // Pas de déplacement (en secondes) pour la molette de la souris
+        public double? InfoPanelRelativeX { get; set; } // Position horizontale sauvegardée du panneau timecode/BPM (0-1)
+        public double? InfoPanelRelativeY { get; set; } // Position verticale sauvegardée du panneau timecode/BPM (0-1)
     }
 
     public partial class MainWindow
@@ -2312,5 +2552,99 @@ namespace DMVideoPlayer
             });
         }
 
+        // === Responsive Controls Overlay ===
+        // Const fixed widths of the two 50px spacer columns in CompactControlsRow
+        private const double SpacerColumnWidth = 50;
+        // Padding of the ControlsOverlay border (10,5,10,5 => 20 horizontal)
+        private const double ControlsOverlayHorizontalPadding = 20;
+
+        private void SetupResponsiveControlsOverlay()
+        {
+            this.Opened += (s, e) => AdjustControlsOverlayLayout();
+
+            this.SizeChanged += (s, e) => AdjustControlsOverlayLayout();
+        }
+
+        private static double MeasureDesiredWidth(Control? control)
+        {
+            if (control == null)
+                return 0;
+
+            control.Measure(Size.Infinity);
+            return control.DesiredSize.Width;
+        }
+
+        private void SetBalanceGroupVisible(bool visible)
+        {
+            if (_balanceGroupPanel != null)
+                _balanceGroupPanel.IsVisible = visible;
+
+            if (_balanceSpacer != null)
+                _balanceSpacer.IsVisible = visible;
+
+            if (_compactControlsRow != null && _compactControlsRow.ColumnDefinitions.Count > 5)
+                _compactControlsRow.ColumnDefinitions[5].Width = new GridLength(visible ? SpacerColumnWidth : 0);
+        }
+
+        /// <summary>
+        /// Masque progressivement les composants les moins importants du ControlsOverlay
+        /// (dans l'ordre : balance, piste audio, sous-titres, position/durée) lorsque
+        /// la largeur disponible ne permet plus de tous les afficher.
+        /// </summary>
+        private void AdjustControlsOverlayLayout()
+        {
+            if (_compactControlsRow == null || _essentialButtonsPanel == null || _volumeGroupPanel == null)
+                return;
+
+            // Réaffiche tout par défaut avant de recalculer ce qui doit être masqué.
+            SetBalanceGroupVisible(true);
+            if (_audioTrackButton != null)
+                _audioTrackButton.IsVisible = true;
+            if (_subtitleButton != null)
+                _subtitleButton.IsVisible = true;
+            if (_timeDisplayPanel != null)
+                _timeDisplayPanel.IsVisible = true;
+
+            double available = (_controlsOverlay?.Bounds.Width ?? this.ClientSize.Width) - ControlsOverlayHorizontalPadding;
+            if (available <= 0)
+                available = this.ClientSize.Width - ControlsOverlayHorizontalPadding;
+
+            double RequiredWidth()
+            {
+                double width = MeasureDesiredWidth(_essentialButtonsPanel);
+
+                if (_timeDisplayPanel?.IsVisible == true)
+                    width += MeasureDesiredWidth(_timeDisplayPanel);
+
+                width += SpacerColumnWidth; // Espace fixe entre bloc 1 et bloc sélection
+
+                if ((_audioTrackButton?.IsVisible ?? false) || (_subtitleButton?.IsVisible ?? false))
+                    width += MeasureDesiredWidth(_selectionGroupPanel);
+
+                if (_balanceGroupPanel?.IsVisible == true)
+                {
+                    width += MeasureDesiredWidth(_balanceGroupPanel);
+                    width += SpacerColumnWidth; // Espace fixe entre balance et volume
+                }
+
+                width += MeasureDesiredWidth(_volumeGroupPanel);
+
+                return width;
+            }
+
+            if (RequiredWidth() > available)
+                SetBalanceGroupVisible(false);
+
+            if (RequiredWidth() > available && _audioTrackButton != null)
+                _audioTrackButton.IsVisible = false;
+
+            if (RequiredWidth() > available && _subtitleButton != null)
+                _subtitleButton.IsVisible = false;
+
+            if (RequiredWidth() > available && _timeDisplayPanel != null)
+                _timeDisplayPanel.IsVisible = false;
+        }
+
             }
         }
+

@@ -6,7 +6,7 @@ xmlns:local="clr-namespace:DMVideoPlayer"
 xmlns:fluent="using:FluentIcons.Avalonia.Fluent"
 mc:Ignorable="d" d:DesignWidth="1050" d:DesignHeight="675"
 x:Class="DMVideoPlayer.MainWindow"
-Title="DM Video Player" Height="675" Width="1000">
+Title="DM Video Player" Height="675" Width="1000" MinWidth="512" MinHeight="256">
     
     <Grid>
         <!-- Video Display Area with Overlays -->
@@ -40,64 +40,56 @@ Title="DM Video Player" Height="675" Width="1000">
                               Margin="10,0,10,0"/>
                 </Border>
 
-                <!-- Timecode Overlay (Top-Center) -->
-                <Border Background="#66000000"
-                        Name="TimecodeOverlay"
-                        Height="32"
-                        MinWidth="90"
-                        VerticalAlignment="Top"
-                        HorizontalAlignment="Center"
-                        Margin="0,8,0,0"
-                        Padding="12,0,12,0"
-                        IsHitTestVisible="False">
-                    <TextBlock Name="TimecodeLabel"
-                              Text="00:00:00:00"
-                              FontSize="24"
-                              FontWeight="Bold"
-                              Foreground="#FFF"
-                              FontFamily="Consolas, Cascadia Mono, Fira Mono, Liberation Mono, Courier New, monospace"
-                              VerticalAlignment="Center"
-                              HorizontalAlignment="Center"/>
-                </Border>
+                <!-- Draggable Info Panel: Timecode, BPM and Beat LED -->
+                <Canvas Name="InfoPanelCanvas">
+                    <Border Background="#66000000"
+                            Name="InfoPanel"
+                            CornerRadius="4"
+                            Padding="8,4,12,4"
+                            Canvas.Left="0"
+                            Canvas.Top="8"
+                            Cursor="Hand"
+                            ToolTip.Tip="Faites glisser pour déplacer le panneau">
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <!-- Timecode Display -->
+                            <TextBlock Name="TimecodeLabel"
+                                      Text="00:00:00:00"
+                                      FontSize="24"
+                                      FontWeight="Bold"
+                                      Foreground="#FFF"
+                                      FontFamily="Consolas, Cascadia Mono, Fira Mono, Liberation Mono, Courier New, monospace"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Center"/>
 
-                <!-- BPM & Beat Indicator Overlay (Top-Right) -->
-                <Border Background="#66000000"
-                        Name="BpmOverlay"
-                        Height="32"
-                        VerticalAlignment="Top"
-                        HorizontalAlignment="Right"
-                        Margin="0,8,8,0"
-                        Padding="12,0,12,0"
-                        IsHitTestVisible="False"
-                        IsVisible="False">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <!-- BPM Display -->
-                        <TextBlock Name="BpmLabelOverlay"
-                                  Text="120 BPM"
-                                  FontSize="14"
-                                  FontWeight="Bold"
-                                  Foreground="#CCCCCC"
-                                  VerticalAlignment="Center"/>
+                            <!-- BPM Display -->
+                            <TextBlock Name="BpmLabelOverlay"
+                                      Text="120 BPM"
+                                      FontSize="14"
+                                      FontWeight="Bold"
+                                      Foreground="#CCCCCC"
+                                      IsVisible="False"
+                                      VerticalAlignment="Center"/>
 
-                        <!-- Beat LED Indicator -->
-                        <Border Name="BeatLed"
-                                Width="16"
-                                Height="16"
-                                CornerRadius="8"
-                                Background="#00FF00"
-                                BorderBrush="#00AA00"
-                                BorderThickness="1"
-                                VerticalAlignment="Center"
-                                BoxShadow="0 0 8 #8000FF00">
-                        </Border>
-                    </StackPanel>
-                </Border>
+                            <!-- Beat LED Indicator -->
+                            <Border Name="BeatLed"
+                                    Width="16"
+                                    Height="16"
+                                    CornerRadius="8"
+                                    Background="#00FF00"
+                                    BorderBrush="#00AA00"
+                                    BorderThickness="1"
+                                    IsVisible="False"
+                                    VerticalAlignment="Center"
+                                    BoxShadow="0 0 8 #8000FF00">
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </Canvas>
 
                 <!-- Controls Overlay (Bottom) -->
                 <Border Background="#DD000000"
                         Name="ControlsOverlay"
                         VerticalAlignment="Bottom"
-                        Margin="0,0,0,22"
                         Padding="10,5,10,5"
                         IsVisible="True">
                     <StackPanel>
@@ -112,9 +104,10 @@ Title="DM Video Player" Height="675" Width="1000">
                         </Grid>
                         
                         <!-- Compact Controls Row -->
-                        <Grid ColumnDefinitions="Auto,50,Auto,*,Auto,50,Auto">
+                        <Grid Name="CompactControlsRow" ColumnDefinitions="Auto,50,Auto,*,Auto,50,Auto">
                             <!-- Bloc 1 (Left): Playback Controls -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
+                                <StackPanel Name="EssentialButtonsPanel" Orientation="Horizontal" Spacing="5">
                                 <Button Name="PlayPauseButton" 
                                         Width="32" 
                                         Height="32" 
@@ -158,13 +151,33 @@ Title="DM Video Player" Height="675" Width="1000">
                                                       FontSize="16"
                                                       Foreground="#CCCCCC"/>
                                 </Button>
+                                </StackPanel>
+
+                                <!-- Time / Duration Display -->
+                                <StackPanel Name="TimeDisplayPanel" Orientation="Horizontal" Spacing="4">
+                                <TextBlock Name="TimeLabel" 
+                                          Text="00:00:00" 
+                                          FontSize="10"
+                                          Foreground="#CCCCCC"
+                                          VerticalAlignment="Center"
+                                          Margin="8,0,0,0"/>
+                                <TextBlock Text="/" 
+                                          FontSize="10"
+                                          Foreground="#808080"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Name="DurationLabel" 
+                                          Text="00:00:00" 
+                                          FontSize="10"
+                                          Foreground="#CCCCCC"
+                                          VerticalAlignment="Center"/>
+                                </StackPanel>
                             </StackPanel>
 
                             <!-- Fixed Space (50px) between Settings and Audio/Subtitle buttons -->
                             <Grid Grid.Column="1" />
 
                             <!-- Bloc 3 (Center-Left): Selection Buttons -->
-                            <StackPanel Grid.Column="2" 
+                            <StackPanel Name="SelectionGroupPanel" Grid.Column="2" 
                                        Orientation="Horizontal" 
                                        Spacing="4" 
                                        VerticalAlignment="Center">
@@ -216,7 +229,7 @@ Title="DM Video Player" Height="675" Width="1000">
                             <Grid Grid.Column="3" />
 
                             <!-- Bloc 4 (Center-Right): Balance Lock + Balance Slider -->
-                            <StackPanel Grid.Column="4" 
+                            <StackPanel Name="BalanceGroupPanel" Grid.Column="4" 
                                        Orientation="Horizontal" 
                                        Spacing="8" 
                                        VerticalAlignment="Center">
@@ -256,10 +269,10 @@ Title="DM Video Player" Height="675" Width="1000">
                             </StackPanel>
 
                             <!-- Fixed Space (50px) between Balance and Volume controls -->
-                            <Grid Grid.Column="5" />
+                            <Grid Name="BalanceSpacer" Grid.Column="5" />
 
                             <!-- Bloc 2 (Right): Volume Control -->
-                            <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <StackPanel Name="VolumeGroupPanel" Grid.Column="6" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                                 <!-- Volume Button -->
                                 <Button Name="VolumeButton" 
                                         Width="32" 
@@ -286,38 +299,6 @@ Title="DM Video Player" Height="675" Width="1000">
                             </StackPanel>
                         </Grid>
                     </StackPanel>
-                </Border>
-                
-                <!-- Minimal Status Bar (Very Bottom) -->
-                <Border Background="#AA000000"
-                        Name="StatusBar"
-                        Height="18"
-                        VerticalAlignment="Bottom"
-                        IsVisible="False">
-                    <Grid ColumnDefinitions="*,Auto" Margin="8,0,8,0">
-                        <TextBlock Name="StatusLabel"
-                                  Grid.Column="0"
-                                  Text=""
-                                  FontSize="10"
-                                  Foreground="#CCCCCC"
-                                  VerticalAlignment="Center"/>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="5">
-                            <TextBlock Name="TimeLabel" 
-                                      Text="00:00:00" 
-                                      FontSize="10"
-                                      Foreground="#CCCCCC"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="/" 
-                                      FontSize="10"
-                                      Foreground="#808080"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Name="DurationLabel" 
-                                      Text="00:00:00" 
-                                      FontSize="10"
-                                      Foreground="#CCCCCC"
-                                      VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Grid>
                 </Border>
             </Grid>
         </Border>
