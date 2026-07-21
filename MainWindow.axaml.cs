@@ -34,6 +34,7 @@ namespace DMVideoPlayer
         private SymbolIcon? _playPauseIcon;
         private Button? _stopButton;
         private Button? _loadButton;
+        private Button? _settingsButton;
         private Slider? _volumeSlider;
         private Slider? _positionSlider;
         private TextBlock? _timeLabel;
@@ -49,7 +50,6 @@ namespace DMVideoPlayer
         private bool _isUserInteractingWithSlider = false;
         private string? _selectedAudioDeviceId = null;
         private int? _selectedAudioTrackId = null;
-        private Button? _audioOutputButton;
         private Button? _audioTrackButton;
         private Button? _subtitleButton;
         private TextBlock? _subtitleButtonText;
@@ -58,7 +58,7 @@ namespace DMVideoPlayer
         private SymbolIcon? _volumeIcon;
         private int _volumeBeforeMute = 100;
         private bool _isMuted = false;
-        private TextBlock? _audioOutputButtonText;
+        private string? _defaultVideoDirectory;
         private Border? _controlsOverlay;
         private Border? _fileNameOverlay;
         private Border? _statusBar;
@@ -72,6 +72,7 @@ namespace DMVideoPlayer
         private TextBlock? _timecodeLabel;
         private Border? _timecodeOverlay;
         private CheckBox? _timecodeCheckBox;
+        private CheckBox? _bpmCheckBox;
         private string _lastTimecodeText = string.Empty;
         private Border? _bpmOverlay;
         private TextBlock? _bpmLabelOverlay;
@@ -247,16 +248,15 @@ namespace DMVideoPlayer
             _playPauseIcon = this.FindControl<SymbolIcon>("PlayPauseIcon");
             _stopButton = this.FindControl<Button>("StopButton");
             _loadButton = this.FindControl<Button>("LoadButton");
+            _settingsButton = this.FindControl<Button>("SettingsButton");
             _volumeSlider = this.FindControl<Slider>("VolumeSlider");
             _positionSlider = this.FindControl<Slider>("PositionSlider");
             _timeLabel = this.FindControl<TextBlock>("TimeLabel");
             _durationLabel = this.FindControl<TextBlock>("DurationLabel");
-            _audioOutputButton = this.FindControl<Button>("AudioOutputButton");
             _audioTrackButton = this.FindControl<Button>("AudioTrackButton");
             _subtitleButton = this.FindControl<Button>("SubtitleButton");
             _subtitleButtonText = this.FindControl<TextBlock>("SubtitleButtonText");
             _audioTrackButtonText = this.FindControl<TextBlock>("AudioTrackButtonText");
-            _audioOutputButtonText = this.FindControl<TextBlock>("AudioOutputButtonText");
             _volumeButton = this.FindControl<Button>("VolumeButton");
             _volumeIcon = this.FindControl<SymbolIcon>("VolumeIcon");
             _controlsOverlay = this.FindControl<Border>("ControlsOverlay");
@@ -267,8 +267,10 @@ namespace DMVideoPlayer
             _balanceLockButton = this.FindControl<Button>("BalanceLockButton");
             _balanceLockIcon = this.FindControl<SymbolIcon>("BalanceLockIcon");
             _balanceSlider = this.FindControl<Slider>("BalanceSlider");
-            // Ajout pour la case à cocher Timecode
-            _timecodeCheckBox = this.FindControl<CheckBox>("TimecodeCheckBox");
+            // La case à cocher Timecode est désormais gérée depuis la fenêtre de paramètres
+            _timecodeCheckBox = new CheckBox { IsChecked = false };
+            // La case à cocher BPM est désormais gérée depuis la fenêtre de paramètres
+            _bpmCheckBox = new CheckBox { IsChecked = false };
             // Ajout pour le timecode overlay
             _timecodeLabel = this.FindControl<TextBlock>("TimecodeLabel");
             _timecodeOverlay = this.FindControl<Border>("TimecodeOverlay");
@@ -280,6 +282,11 @@ namespace DMVideoPlayer
             if (_timecodeCheckBox != null)
             {
                 _timecodeCheckBox.IsCheckedChanged += (s, e) => { UpdateTimecodeVisibility(); SaveSettings(); };
+            }
+
+            if (_bpmCheckBox != null)
+            {
+                _bpmCheckBox.IsCheckedChanged += (s, e) => { UpdateTimecodeVisibility(); SaveSettings(); };
             }
 
             var balanceSlider = this.FindControl<Slider>("BalanceSlider");
@@ -316,6 +323,9 @@ namespace DMVideoPlayer
             if (_loadButton != null)
                 _loadButton.Click += LoadButton_Click;
 
+            if (_settingsButton != null)
+                _settingsButton.Click += SettingsButton_Click;
+
             if (_volumeSlider != null)
                 _volumeSlider.PropertyChanged += VolumeSlider_PropertyChanged;
 
@@ -336,11 +346,6 @@ namespace DMVideoPlayer
             {
                 _audioOutputComboBox.SelectionChanged += AudioOutputComboBox_SelectionChanged;
                 LoadAudioOutputDevices();
-            }
-
-            if (_audioOutputButton != null)
-            {
-                _audioOutputButton.Click += AudioOutputButton_Click;
             }
 
             if (_audioTrackButton != null)
@@ -415,6 +420,15 @@ namespace DMVideoPlayer
             if (_timecodeCheckBox != null)
             {
                 _timecodeCheckBox.IsChecked = settings.ShowTimecode;
+            }
+
+            // Appliquer le répertoire vidéo par défaut
+            _defaultVideoDirectory = settings.DefaultVideoDirectory;
+
+            // Appliquer l'état de la case à cocher BPM
+            if (_bpmCheckBox != null)
+            {
+                _bpmCheckBox.IsChecked = settings.ShowBpm;
             }
         }
 
@@ -524,7 +538,6 @@ namespace DMVideoPlayer
                     if (defaultDevice != null)
                     {
                         _audioOutputComboBox.SelectedItem = defaultDevice;
-                        UpdateAudioOutputButtonText(defaultDevice.DeviceName);
                         Debug.WriteLine($"Selected audio output device: {defaultDevice.DeviceName}");
                     }
 
@@ -570,7 +583,6 @@ namespace DMVideoPlayer
                     _selectedAudioDeviceId = selectedDevice.DeviceId;
                     
                     // Update the button text
-                    UpdateAudioOutputButtonText(selectedDevice.DeviceName);
                     
                     // Stop current playback
                     if (wasPlaying)
@@ -976,14 +988,6 @@ namespace DMVideoPlayer
             }
         }
 
-        private void UpdateAudioOutputButtonText(string deviceName)
-        {
-            if (_audioOutputButtonText != null)
-            {
-                _audioOutputButtonText.Text = deviceName;
-            }
-        }
-
         private void AudioTrackComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
         {
             if (_isUpdatingAudioTracks || _mediaPlayer == null || _audioTrackComboBox == null)
@@ -996,40 +1000,6 @@ namespace DMVideoPlayer
                 UpdateAudioTrackButtonText(selectedTrack.Name);
                 Debug.WriteLine($"Audio track changed to: {selectedTrack.Name} (ID: {selectedTrack.Id})");
             }
-        }
-
-        private void AudioOutputButton_Click(object? sender, RoutedEventArgs e)
-        {
-            if (_audioOutputButton == null || _audioOutputComboBox == null)
-                return;
-
-            var menu = new ContextMenu();
-
-            if (_audioOutputComboBox.ItemsSource != null)
-            {
-                foreach (var item in _audioOutputComboBox.ItemsSource)
-                {
-                    var menuItem = new MenuItem
-                    {
-                        Header = item.ToString(),
-                        Tag = item
-                    };
-
-                    menuItem.Click += (s, args) =>
-                    {
-                        if (menuItem.Tag is AudioOutputDevice device)
-                        {
-                            _audioOutputComboBox.SelectedItem = device;
-                        }
-                    };
-
-                    menu.Items.Add(menuItem);
-                }
-            }
-
-            menu.PlacementTarget = _audioOutputButton;
-            menu.Placement = PlacementMode.Top;
-            menu.Open(_audioOutputButton);
         }
 
         private void AudioTrackButton_Click(object? sender, RoutedEventArgs e)
@@ -1293,6 +1263,87 @@ namespace DMVideoPlayer
             StopAndResetPosition();
         }
 
+        private SettingsWindow? _settingsWindow;
+
+        private void SettingsButton_Click(object? sender, RoutedEventArgs e)
+        {
+            if (_settingsWindow != null)
+            {
+                _settingsWindow.Activate();
+                return;
+            }
+
+            _settingsWindow = new SettingsWindow(this);
+            _settingsWindow.Closed += (s, args) => _settingsWindow = null;
+            _settingsWindow.Show(this);
+        }
+
+        // API exposée pour la fenêtre de paramètres (sortie audio + timecode)
+        public IEnumerable<AudioOutputDevice> GetAudioOutputDevices()
+        {
+            return (_audioOutputComboBox?.ItemsSource as IEnumerable<AudioOutputDevice>) ?? Enumerable.Empty<AudioOutputDevice>();
+        }
+
+        public AudioOutputDevice? GetSelectedAudioOutputDevice()
+        {
+            return _audioOutputComboBox?.SelectedItem as AudioOutputDevice;
+        }
+
+        public void SetSelectedAudioOutputDevice(AudioOutputDevice device)
+        {
+            if (_audioOutputComboBox != null)
+            {
+                _audioOutputComboBox.SelectedItem = device;
+            }
+        }
+
+        public bool GetShowTimecode()
+        {
+            return _timecodeCheckBox?.IsChecked == true;
+        }
+
+        public void SetShowTimecode(bool value)
+        {
+            if (_timecodeCheckBox != null)
+            {
+                _timecodeCheckBox.IsChecked = value;
+            }
+        }
+
+        public bool GetShowBpm()
+        {
+            return _bpmCheckBox?.IsChecked == true;
+        }
+
+        public void SetShowBpm(bool value)
+        {
+            if (_bpmCheckBox != null)
+            {
+                _bpmCheckBox.IsChecked = value;
+            }
+        }
+
+        public string? GetDefaultVideoDirectory()
+        {
+            return _defaultVideoDirectory;
+        }
+
+        public void SetDefaultVideoDirectory(string? path)
+        {
+            _defaultVideoDirectory = string.IsNullOrWhiteSpace(path) ? null : path;
+            SaveSettings();
+        }
+
+        private string GetEffectiveVideoStartDirectory()
+        {
+            if (!string.IsNullOrWhiteSpace(_defaultVideoDirectory) && Directory.Exists(_defaultVideoDirectory))
+            {
+                return _defaultVideoDirectory;
+            }
+
+            return Environment.GetFolderPath(Environment.SpecialFolder.MyVideos);
+        }
+
         private async void LoadButton_Click(object? sender, RoutedEventArgs e)
         {
             try
@@ -1320,6 +1371,16 @@ namespace DMVideoPlayer
                     AllowMultiple = false,
                     FileTypeFilter = fileTypes
                 };
+
+                var startDirectory = GetEffectiveVideoStartDirectory();
+                try
+                {
+                    options.SuggestedStartLocation = await storageProvider.TryGetFolderFromPathAsync(startDirectory);
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Error resolving start directory '{startDirectory}': {ex.Message}");
+                }
 
                 var result = await storageProvider.OpenFilePickerAsync(options);
 
@@ -1883,7 +1944,9 @@ namespace DMVideoPlayer
                     Volume = _volumeSlider != null ? (int)_volumeSlider.Value : 100,
                     Balance = 0.0,
                     IsBalanceLocked = _isBalanceLocked,
-                    ShowTimecode = _timecodeCheckBox != null && _timecodeCheckBox.IsChecked == true // Sauvegarde de l'état timecode
+                    ShowTimecode = _timecodeCheckBox != null && _timecodeCheckBox.IsChecked == true, // Sauvegarde de l'état timecode
+                    ShowBpm = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true, // Sauvegarde de l'état BPM
+                    DefaultVideoDirectory = _defaultVideoDirectory
                 };
 
                 var balanceSlider = this.FindControl<Slider>("BalanceSlider");
@@ -1912,10 +1975,10 @@ namespace DMVideoPlayer
                 _timecodeOverlay.IsVisible = _timecodeCheckBox.IsChecked == true;
             }
 
-            // Lier la visibilité du BPM overlay au timecode
-            if (_bpmOverlay != null && _timecodeCheckBox != null)
+            // La visibilité du BPM overlay est désormais indépendante du timecode
+            if (_bpmOverlay != null && _bpmCheckBox != null)
             {
-                _bpmOverlay.IsVisible = _timecodeCheckBox.IsChecked == true && _tempoTrack != null && _tempoTrack.IsLoaded;
+                _bpmOverlay.IsVisible = _bpmCheckBox.IsChecked == true && _tempoTrack != null && _tempoTrack.IsLoaded;
             }
         }
 
@@ -1996,6 +2059,8 @@ namespace DMVideoPlayer
         public double Balance { get; set; } = 0.0;
         public bool IsBalanceLocked { get; set; } = false;
         public bool ShowTimecode { get; set; } = false; // Ajout pour la case à cocher timecode
+        public bool ShowBpm { get; set; } = false; // Ajout pour la case à cocher BPM
+        public string? DefaultVideoDirectory { get; set; } // Répertoire par défaut pour le chargement des vidéos
     }
 
     public partial class MainWindow

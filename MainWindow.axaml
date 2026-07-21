@@ -112,7 +112,7 @@ Title="DM Video Player" Height="675" Width="1000">
                         </Grid>
                         
                         <!-- Compact Controls Row -->
-                        <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto">
+                        <Grid ColumnDefinitions="Auto,50,Auto,*,Auto,50,Auto">
                             <!-- Bloc 1 (Left): Playback Controls -->
                             <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="5">
                                 <Button Name="PlayPauseButton" 
@@ -147,9 +147,20 @@ Title="DM Video Player" Height="675" Width="1000">
                                                       FontSize="16"
                                                       Foreground="#CCCCCC"/>
                                 </Button>
+                                <Button Name="SettingsButton" 
+                                        Width="32" 
+                                        Height="32" 
+                                        Padding="0" 
+                                        Focusable="False"
+                                        Classes="playback-button"
+                                        ToolTip.Tip="Param&#232;tres">
+                                    <fluent:SymbolIcon Symbol="Settings"
+                                                      FontSize="16"
+                                                      Foreground="#CCCCCC"/>
+                                </Button>
                             </StackPanel>
 
-                            <!-- Flexible Space 1 -->
+                            <!-- Fixed Space (50px) between Settings and Audio/Subtitle buttons -->
                             <Grid Grid.Column="1" />
 
                             <!-- Bloc 3 (Center-Left): Selection Buttons -->
@@ -157,27 +168,6 @@ Title="DM Video Player" Height="675" Width="1000">
                                        Orientation="Horizontal" 
                                        Spacing="4" 
                                        VerticalAlignment="Center">
-                                <Button Name="AudioOutputButton" 
-                                        Width="150" 
-                                        Height="28"
-                                        FontSize="10"
-                                        FontWeight="Bold"
-                                        Padding="0"
-                                        Focusable="False"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Classes="selection-button"
-                                        ToolTip.Tip="Sélectionner la sortie audio">
-                                    <StackPanel Orientation="Horizontal" Spacing="3">
-                                        <fluent:SymbolIcon Symbol="Headphones" 
-                                                          FontSize="14"
-                                                          Foreground="#B0B0B0"
-                                                          VerticalAlignment="Center"/>
-                                        <TextBlock Name="AudioOutputButtonText" 
-                                                  Text="Sortie audio" 
-                                                  VerticalAlignment="Center"/>
-                                    </StackPanel>
-                                </Button>
                                 <Button Name="AudioTrackButton" 
                                         Width="150" 
                                         Height="28"
@@ -225,17 +215,11 @@ Title="DM Video Player" Height="675" Width="1000">
                             <!-- Flexible Space 2 -->
                             <Grid Grid.Column="3" />
 
-                            <!-- Bloc 4 (Center-Right): Timecode Checkbox + Balance Slider -->
+                            <!-- Bloc 4 (Center-Right): Balance Lock + Balance Slider -->
                             <StackPanel Grid.Column="4" 
                                        Orientation="Horizontal" 
                                        Spacing="8" 
                                        VerticalAlignment="Center">
-                                <!-- Timecode Checkbox -->
-                                <CheckBox Name="TimecodeCheckBox"
-                                          Content="TC"
-                                          IsChecked="True"
-                                          VerticalAlignment="Center"
-                                          Margin="0,0,6,0"/>
                                 <!-- Balance Lock + Balance Slider -->
                                 <Button Name="BalanceLockButton" 
                                         Width="24" 
@@ -271,7 +255,7 @@ Title="DM Video Player" Height="675" Width="1000">
                                           VerticalAlignment="Center"/>
                             </StackPanel>
 
-                            <!-- Flexible Space 3 -->
+                            <!-- Fixed Space (50px) between Balance and Volume controls -->
                             <Grid Grid.Column="5" />
 
                             <!-- Bloc 2 (Right): Volume Control -->

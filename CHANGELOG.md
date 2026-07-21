@@ -4,6 +4,18 @@ All notable changes to DM Video Player will be documented in this file.
 
 ## [Unreleased]
 
+### ⭐ New Features
+
+- Add a dedicated setting windows
+- Move audio output selection to settings windows
+- Move timecode display checkbox to settings windows
+- Add BPM display checkbox to settings windows
+- Add default vidéo folder to settings windows
+
+### 🐛 Bug Fixes
+
+- Restore drag'n drop feature for quick vidéo playing
+
 ### 📝 Documentation
 
 - Add CHANGELOG.md ([141ad52](https://github.com/Fabrice-Deshayes-aka-Xtream/DMVideoPlayer/commit/141ad52))

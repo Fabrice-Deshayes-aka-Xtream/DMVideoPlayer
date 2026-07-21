@@ -1,0 +1,67 @@
+<Window xmlns="https://github.com/avaloniaui"
+xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+x:Class="DMVideoPlayer.SettingsWindow"
+Title="Param&#232;tres"
+Width="400" Height="460"
+WindowStartupLocation="CenterOwner"
+CanResize="False">
+
+    <Grid Background="#2D2D2D" Margin="16">
+        <StackPanel Spacing="16" VerticalAlignment="Top">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Sortie audio"
+                           Foreground="#DDDDDD"
+                           FontWeight="Bold"
+                           FontSize="12"/>
+                <ComboBox Name="AudioOutputComboBox"
+                          HorizontalAlignment="Stretch"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <CheckBox Name="TimecodeCheckBox"
+                          Content="Afficher le timecode"
+                          Foreground="#DDDDDD"/>
+                <TextBlock Text="Format : heure:minute:seconde:frame"
+                           Foreground="#999999"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Margin="24,0,0,0"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <CheckBox Name="BpmCheckBox"
+                          Content="Afficher le BPM"
+                          Foreground="#DDDDDD"/>
+                <TextBlock Text="Nécessite une piste tempo au format .smt (Cubase) portant le même nom que le fichier vidéo."
+                           Foreground="#999999"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Margin="24,0,0,0"/>
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <TextBlock Text="Répertoire vidéo par défaut"
+                           Foreground="#DDDDDD"
+                           FontWeight="Bold"
+                           FontSize="12"/>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox Name="DefaultVideoDirectoryTextBox"
+                             Grid.Column="0"
+                             IsReadOnly="True"
+                             Watermark="Répertoire vidéos de Windows"/>
+                    <Button Name="BrowseDefaultVideoDirectoryButton"
+                            Grid.Column="1"
+                            Content="Parcourir..."
+                            Margin="8,0,0,0"/>
+                </Grid>
+                <TextBlock Text="Utilisé comme point de départ lors du chargement d'une vidéo. Si le répertoire n'existe plus, le répertoire vidéos de Windows est utilisé."
+                           Foreground="#999999"
+                           FontSize="11"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
