@@ -2,7 +2,7 @@
 
 All notable changes to DM Video Player will be documented in this file.
 
-## [Unreleased]
+## [1.2.0] - 2026-07-21
 
 ### ⭐ New Features
 
