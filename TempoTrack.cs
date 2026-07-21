@@ -41,39 +41,39 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Trouve le temps exact du beat le plus proche (passé ou futur) par rapport au temps donné
+        /// Finds the exact time of the nearest beat (past or future) relative to the given time
         /// </summary>
         public double GetNearestBeatTime(double currentTimeInSeconds)
         {
             if (_beatTimes.Count == 0)
                 return -1.0;
 
-            // Recherche binaire du beat le plus proche
+            // Binary search for the nearest beat
             int index = _beatTimes.BinarySearch(currentTimeInSeconds);
 
             if (index >= 0)
             {
-                // Temps exact d'un beat trouvé
+                // Exact time of a found beat
                 return _beatTimes[index];
             }
             else
             {
-                // BinarySearch retourne ~index du prochain élément plus grand
+                // BinarySearch returns ~index of the next larger element
                 int nextIndex = ~index;
 
                 if (nextIndex == 0)
                 {
-                    // Avant le premier beat
+                    // Before the first beat
                     return _beatTimes[0];
                 }
                 else if (nextIndex >= _beatTimes.Count)
                 {
-                    // Après le dernier beat
+                    // After the last beat
                     return _beatTimes[_beatTimes.Count - 1];
                 }
                 else
                 {
-                    // Entre deux beats - choisir le plus proche
+                    // Between two beats - pick the closest one
                     double prevBeat = _beatTimes[nextIndex - 1];
                     double nextBeat = _beatTimes[nextIndex];
 
@@ -86,7 +86,7 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Trouve le temps exact du prochain beat à venir
+        /// Finds the exact time of the next upcoming beat
         /// </summary>
         public double GetNextBeatTime(double currentTimeInSeconds)
         {
@@ -101,7 +101,7 @@ namespace DMVideoPlayer
                 }
             }
 
-            return -1.0; // Plus de beats après ce temps
+            return -1.0; // No more beats after this time
         }
 
         public static TempoTrack? LoadFromFile(string smtFilePath)
@@ -193,12 +193,12 @@ namespace DMVideoPlayer
             if (_tempoEvents.Count == 0)
                 return;
 
-            // Commencer au premier événement de tempo
+            // Start at the first tempo event
             var firstEvent = _tempoEvents[0];
             double currentBeatTime = firstEvent.TimeInSeconds;
             _beatTimes.Add(currentBeatTime);
 
-            // Générer les beats de manière continue sur 5 minutes (ou jusqu'à la fin)
+            // Generate beats continuously over 5 minutes (or until the end)
             double maxTime = firstEvent.TimeInSeconds + 300.0; // 5 minutes max
             int currentEventIndex = 0;
 
@@ -207,18 +207,18 @@ namespace DMVideoPlayer
                 var currentEvent = _tempoEvents[currentEventIndex];
                 double secondsPerBeat = 60.0 / currentEvent.Bpm;
 
-                // Calculer le prochain beat
+                // Compute the next beat
                 currentBeatTime += secondsPerBeat;
 
-                // Si on a dépassé le prochain événement de tempo, passer au suivant
+                // If we've passed the next tempo event, move to the next one
                 while (currentEventIndex + 1 < _tempoEvents.Count &&
                        currentBeatTime >= _tempoEvents[currentEventIndex + 1].TimeInSeconds)
                 {
                     currentEventIndex++;
-                    // Recalculer secondsPerBeat avec le nouveau BPM sera fait à la prochaine itération
+                    // Recalculating secondsPerBeat with the new BPM will happen on the next iteration
                 }
 
-                // Ajouter le beat si on n'a pas dépassé la limite de temps
+                // Add the beat if we haven't exceeded the time limit
                 if (currentBeatTime < maxTime)
                 {
                     _beatTimes.Add(currentBeatTime);

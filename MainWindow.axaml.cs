@@ -87,13 +87,13 @@ namespace DMVideoPlayer
         private Point _infoPanelDragPointerStart;
         private Point _infoPanelDragOrigin;
         private bool _infoPanelPositionInitialized = false;
-        // Position relative du panneau (0.0 - 1.0) dans l'espace disponible du canvas,
-        // afin de conserver sa position relative lors des changements de taille (ex: plein écran).
+        // Relative position of the panel (0.0 - 1.0) within the canvas' available space,
+        // to keep its relative position during size changes (e.g. fullscreen toggle).
         private double _infoPanelRelativeX = 0.5;
         private double _infoPanelRelativeY = 0.0;
-        // Hauteur du panneau Controls Overlay mise en cache (même lorsqu'il est masqué),
-        // afin que la zone de déplacement du panneau timecode/BPM reste stable et ne
-        // "saute" pas lorsque le Controls Overlay apparaît ou disparaît.
+        // Height of the Controls Overlay panel, cached (even when hidden),
+        // so that the drag area of the timecode/BPM panel remains stable and does not
+        // "jump" when the Controls Overlay appears or disappears.
         private double _controlsOverlayReservedHeight = 0.0;
 
         // Timecode interpolation
@@ -103,9 +103,9 @@ namespace DMVideoPlayer
 
         // Tempo track beat flash
         private TempoTrack? _tempoTrack = null;
-        private System.Threading.Timer? _beatTimer = null; // Timer indépendant haute précision
-        private double _nextScheduledBeat = -1.0; // Le prochain beat à flasher
-        private double _lastDisplayedBpm = -1.0; // Pour lisser l'affichage du BPM
+        private System.Threading.Timer? _beatTimer = null; // Independent high-precision timer
+        private double _nextScheduledBeat = -1.0; // The next beat to flash
+        private double _lastDisplayedBpm = -1.0; // Used to smooth the displayed BPM
         private readonly object _beatTimerLock = new object();
 
         public MainWindow()
@@ -117,7 +117,7 @@ namespace DMVideoPlayer
             SetupDragAndDrop();
             SetupKeyboardHandling();
 
-            // Timer haute précision pour les beats (indépendant de la vidéo)
+            // High-precision timer for beats (independent of the video)
             _beatTimer = new System.Threading.Timer(OnBeatTimerCallback, null, Timeout.Infinite, Timeout.Infinite);
 
             Activated += MainWindow_Activated;
@@ -311,16 +311,16 @@ namespace DMVideoPlayer
             _balanceSpacer = this.FindControl<Grid>("BalanceSpacer");
             _volumeGroupPanel = this.FindControl<StackPanel>("VolumeGroupPanel");
             SetupResponsiveControlsOverlay();
-            // La case à cocher Timecode est désormais gérée depuis la fenêtre de paramètres
+            // The Timecode checkbox is now managed from the settings window
             _timecodeCheckBox = new CheckBox { IsChecked = false };
-            // La case à cocher BPM est désormais gérée depuis la fenêtre de paramètres
+            // The BPM checkbox is now managed from the settings window
             _bpmCheckBox = new CheckBox { IsChecked = false };
-            // Ajout pour le timecode overlay
+            // Added for the timecode overlay
             _timecodeLabel = this.FindControl<TextBlock>("TimecodeLabel");
-            // Ajout pour BPM overlay et beat LED
+            // Added for the BPM overlay and beat LED
             _bpmLabelOverlay = this.FindControl<TextBlock>("BpmLabelOverlay");
             _beatLed = this.FindControl<Border>("BeatLed");
-            // Panneau déplaçable regroupant Timecode, BPM et LED
+            // Draggable panel grouping Timecode, BPM and LED
             _infoPanelCanvas = this.FindControl<Canvas>("InfoPanelCanvas");
             _infoPanel = this.FindControl<Border>("InfoPanel");
             SetupInfoPanelDrag();
@@ -433,10 +433,10 @@ namespace DMVideoPlayer
 
         private void ApplySettings(AppSettings settings)
         {
-            // Restaurer la position sauvegardée du panneau timecode/BPM en tout premier,
-            // AVANT d'affecter les cases à cocher ci-dessous : ces dernières déclenchent
-            // leur gestionnaire IsCheckedChanged qui appelle SaveSettings(), ce qui écrasait
-            // la position enregistrée par les valeurs par défaut si elle n'était pas déjà en mémoire.
+            // Restore the saved position of the timecode/BPM panel first,
+            // BEFORE assigning the checkboxes below: the latter trigger
+            // their IsCheckedChanged handler which calls SaveSettings(), which was overwriting
+            // the saved position with the default values if it wasn't already in memory.
             if (settings.InfoPanelRelativeX.HasValue && settings.InfoPanelRelativeY.HasValue)
             {
                 _infoPanelRelativeX = settings.InfoPanelRelativeX.Value;
@@ -479,19 +479,19 @@ namespace DMVideoPlayer
             }
             Debug.WriteLine($"✓ Applied saved balance lock state: {(_isBalanceLocked ? "Locked" : "Unlocked")}");
 
-            // Appliquer l'état de la case à cocher timecode
+            // Apply the timecode checkbox state
             if (_timecodeCheckBox != null)
             {
                 _timecodeCheckBox.IsChecked = settings.ShowTimecode;
             }
 
-            // Appliquer le répertoire vidéo par défaut
+            // Apply the default video directory
             _defaultVideoDirectory = settings.DefaultVideoDirectory;
 
-            // Appliquer le pas de déplacement de la molette
+            // Apply the mouse wheel seek step
             _seekStepSeconds = settings.SeekStepSeconds > 0 ? settings.SeekStepSeconds : 5;
 
-            // Appliquer l'état de la case à cocher BPM
+            // Apply the BPM checkbox state
             if (_bpmCheckBox != null)
             {
                 _bpmCheckBox.IsChecked = settings.ShowBpm;
@@ -884,8 +884,7 @@ namespace DMVideoPlayer
 
                     _mediaPlayer.Play();
 
-                    // Synchroniser le beat timer après un court délai
-                    await Task.Delay(50);
+                    // Sync the beat timer after a short delay
                     SyncBeatTimer();
                 }
                 else
@@ -1307,7 +1306,7 @@ namespace DMVideoPlayer
                 _mediaPlayer.Play();
                 _updateTimer?.Start();
 
-                // Synchroniser le beat timer après un court délai pour laisser le player changer d'état
+                // Sync the beat timer after a short delay to let the player change state
                 Task.Delay(50).ContinueWith(_ =>
                 {
                     Dispatcher.UIThread.Post(() => SyncBeatTimer());
@@ -1344,7 +1343,7 @@ namespace DMVideoPlayer
             _settingsWindow.Show(this);
         }
 
-        // API exposée pour la fenêtre de paramètres (sortie audio + timecode)
+        // API exposed for the settings window (audio output + timecode)
         public IEnumerable<AudioOutputDevice> GetAudioOutputDevices()
         {
             return (_audioOutputComboBox?.ItemsSource as IEnumerable<AudioOutputDevice>) ?? Enumerable.Empty<AudioOutputDevice>();
@@ -1661,7 +1660,7 @@ namespace DMVideoPlayer
                     _mediaPlayer.Position = position;
                     Debug.WriteLine($"Position vidéo mise à jour: {position * 100:F1}%");
 
-                    // Resynchroniser le beat timer après le seek avec un court délai
+                    // Resync the beat timer after the seek with a short delay
                     Task.Delay(50).ContinueWith(_ =>
                     {
                         Dispatcher.UIThread.Post(() => SyncBeatTimer());
@@ -1891,15 +1890,15 @@ namespace DMVideoPlayer
 
         private void VideoContainer_Tapped(object? sender, TappedEventArgs e)
         {
-            // Ignore le clic si celui-ci vient juste de redonner le focus à la fenêtre :
-            // on veut simplement récupérer le focus, pas basculer play/pause.
+            // Ignore the click if it just gave focus back to the window:
+            // we simply want to regain focus, not toggle play/pause.
             if (_justRegainedFocus)
             {
                 _justRegainedFocus = false;
                 return;
             }
 
-            // Démarre un timer pour différer l'action du simple clic
+            // Start a timer to defer the single click action
             _doubleClickDetected = false;
             _singleClickTimer?.Stop();
             _singleClickTimer = new System.Timers.Timer(SingleClickDelay);
@@ -1996,7 +1995,7 @@ namespace DMVideoPlayer
             if (_fileNameOverlay != null)
                 _fileNameOverlay.IsVisible = false;
 
-            // Ne plus masquer le timecode ici
+            // No longer hide the timecode here
         }
 
         private void UpdateFileNameDisplay(string filePath)
@@ -2055,8 +2054,8 @@ namespace DMVideoPlayer
                     Volume = _volumeSlider != null ? (int)_volumeSlider.Value : 100,
                     Balance = 0.0,
                     IsBalanceLocked = _isBalanceLocked,
-                    ShowTimecode = _timecodeCheckBox != null && _timecodeCheckBox.IsChecked == true, // Sauvegarde de l'état timecode
-                    ShowBpm = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true, // Sauvegarde de l'état BPM
+                    ShowTimecode = _timecodeCheckBox != null && _timecodeCheckBox.IsChecked == true, // Save the timecode state
+                    ShowBpm = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true, // Save the BPM state
                     DefaultVideoDirectory = _defaultVideoDirectory,
                     SeekStepSeconds = _seekStepSeconds,
                     InfoPanelRelativeX = _infoPanelRelativeX,
@@ -2089,7 +2088,7 @@ namespace DMVideoPlayer
                 _timecodeLabel.IsVisible = _timecodeCheckBox.IsChecked == true;
             }
 
-            // La visibilité du BPM est désormais indépendante du timecode
+            // BPM visibility is now independent of the timecode
             bool bpmVisible = _bpmCheckBox != null && _bpmCheckBox.IsChecked == true && _tempoTrack != null && _tempoTrack.IsLoaded;
             if (_bpmLabelOverlay != null)
             {
@@ -2100,7 +2099,7 @@ namespace DMVideoPlayer
                 _beatLed.IsVisible = bpmVisible;
             }
 
-            // Le panneau reste visible tant qu'au moins un élément est affiché
+            // The panel remains visible as long as at least one element is displayed
             if (_infoPanel != null)
             {
                 bool timecodeVisible = _timecodeLabel?.IsVisible == true;
@@ -2199,9 +2198,9 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Calcule la position verticale maximale autorisée pour le panneau d'info,
-        /// afin d'empêcher de le déplacer sous le panneau Controls Overlay (ce qui
-        /// rendrait le panneau difficile à récupérer pour le repositionner ensuite).
+        /// Computes the maximum allowed vertical position for the info panel,
+        /// to prevent it from being moved under the Controls Overlay panel (which
+        /// would make the panel difficult to grab again to reposition it afterwards).
         /// </summary>
         private double GetInfoPanelMaxTop()
         {
@@ -2257,8 +2256,8 @@ namespace DMVideoPlayer
             Canvas.SetLeft(_infoPanel, newLeft);
             Canvas.SetTop(_infoPanel, newTop);
 
-            // Mémorise la position en pourcentage de l'espace disponible pour la conserver
-            // lors des changements de taille de la fenêtre (ex: bascule plein écran).
+            // Store the position as a percentage of the available space to keep it
+            // consistent across window size changes (e.g. fullscreen toggle).
             _infoPanelRelativeX = maxLeft > 0 ? newLeft / maxLeft : 0.5;
             _infoPanelRelativeY = maxTop > 0 ? newTop / maxTop : 0.0;
 
@@ -2354,48 +2353,48 @@ namespace DMVideoPlayer
         public int Volume { get; set; } = 100;
         public double Balance { get; set; } = 0.0;
         public bool IsBalanceLocked { get; set; } = false;
-        public bool ShowTimecode { get; set; } = false; // Ajout pour la case à cocher timecode
-        public bool ShowBpm { get; set; } = false; // Ajout pour la case à cocher BPM
-        public string? DefaultVideoDirectory { get; set; } // Répertoire par défaut pour le chargement des vidéos
-        public int SeekStepSeconds { get; set; } = 5; // Pas de déplacement (en secondes) pour la molette de la souris
-        public double? InfoPanelRelativeX { get; set; } // Position horizontale sauvegardée du panneau timecode/BPM (0-1)
-        public double? InfoPanelRelativeY { get; set; } // Position verticale sauvegardée du panneau timecode/BPM (0-1)
+        public bool ShowTimecode { get; set; } = false; // Added for the timecode checkbox
+        public bool ShowBpm { get; set; } = false; // Added for the BPM checkbox
+        public string? DefaultVideoDirectory { get; set; } // Default directory for loading videos
+        public int SeekStepSeconds { get; set; } = 5; // Step (in seconds) for the mouse wheel seek
+        public double? InfoPanelRelativeX { get; set; } // Saved horizontal position of the timecode/BPM panel (0-1)
+        public double? InfoPanelRelativeY { get; set; } // Saved vertical position of the timecode/BPM panel (0-1)
     }
 
     public partial class MainWindow
     {
         /// <summary>
-        /// Synchronise le timer de beats avec la position vidéo actuelle.
-        /// À appeler lors du play initial, après un seek, ou après pause/stop.
+        /// Synchronizes the beat timer with the current video position.
+        /// Should be called on initial play, after a seek, or after pause/stop.
         /// </summary>
         private void SyncBeatTimer()
         {
             lock (_beatTimerLock)
             {
-                // Arrêter le timer actuel
+                // Stop the current timer
                 _beatTimer?.Change(Timeout.Infinite, Timeout.Infinite);
                 _nextScheduledBeat = -1.0;
 
                 if (_mediaPlayer == null || _tempoTrack == null || !_tempoTrack.IsLoaded)
                     return;
 
-                // Note: On ne vérifie pas IsPlaying ici car cette méthode est appelée juste après Play()
-                // et l'état peut ne pas être encore synchronisé
+                // Note: We don't check IsPlaying here because this method is called right after Play()
+                // and the state may not be synchronized yet
 
                 var currentTime = _mediaPlayer.Time / 1000.0;
 
-                // Trouver le prochain beat à partir de la position actuelle
+                // Find the next beat from the current position
                 var nextBeat = _tempoTrack.GetNextBeatTime(currentTime);
 
                 if (nextBeat < 0)
-                    return; // Pas de beats à venir
+                    return; // No upcoming beats
 
-                // Calculer le délai jusqu'au prochain beat
+                // Compute the delay until the next beat
                 var delay = nextBeat - currentTime;
 
                 if (delay <= 0)
                 {
-                    // Beat déjà passé, chercher le suivant
+                    // Beat already passed, look for the next one
                     nextBeat = _tempoTrack.GetNextBeatTime(nextBeat + 0.001);
                     if (nextBeat < 0)
                         return;
@@ -2412,7 +2411,7 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Callback du timer de beats (haute précision, indépendant des frames vidéo)
+        /// Callback for the beat timer (high precision, independent of video frames)
         /// </summary>
         private void OnBeatTimerCallback(object? state)
         {
@@ -2434,7 +2433,7 @@ namespace DMVideoPlayer
 
                 Dispatcher.UIThread.Post(() => FlashBeatLed(true));
 
-                // Auto-off après la durée du flash
+                // Auto-off after the flash duration
                 Task.Delay(flashDuration).ContinueWith(_ =>
                 {
                     Dispatcher.UIThread.Post(() => FlashBeatLed(false));
@@ -2446,7 +2445,7 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Planifie le prochain beat après celui qui vient de se produire
+        /// Schedules the next beat after the one that just occurred
         /// </summary>
         private void ScheduleNextBeat()
         {
@@ -2457,16 +2456,16 @@ namespace DMVideoPlayer
             if (currentBeat < 0)
                 return;
 
-            // Trouver le beat suivant dans la timeline
+            // Find the next beat in the timeline
             var nextBeat = _tempoTrack.GetNextBeatTime(currentBeat + 0.001);
 
             if (nextBeat < 0)
             {
                 _nextScheduledBeat = -1.0;
-                return; // Plus de beats
+                return; // No more beats
             }
 
-            // Calculer le délai exact entre les deux beats
+            // Compute the exact delay between the two beats
             var delay = nextBeat - currentBeat;
 
             if (delay > 0)
@@ -2478,7 +2477,7 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Arrête le timer de beats
+        /// Stops the beat timer
         /// </summary>
         private void StopBeatTimer()
         {
@@ -2497,7 +2496,7 @@ namespace DMVideoPlayer
                 return;
             }
 
-            // Afficher et mettre à jour le BPM (avec lissage)
+            // Display and update the BPM (with smoothing)
             var currentBpm = _tempoTrack.GetBpmAtTime(currentTimeInSeconds);
             var roundedBpm = Math.Round(currentBpm);
 
@@ -2526,7 +2525,7 @@ namespace DMVideoPlayer
                 });
             }
 
-            // Les beats sont gérés par le timer indépendant, pas ici
+            // Beats are handled by the independent timer, not here
         }
 
         private void FlashBeatLed(bool flash)
@@ -2541,12 +2540,12 @@ namespace DMVideoPlayer
 
                 if (flash)
                 {
-                    // LED allumée avec glow intense
+                    // LED on with intense glow
                     _beatLed.Opacity = 1.0;
                 }
                 else
                 {
-                    // LED éteinte (mais visible avec opacité réduite)
+                    // LED off (but visible with reduced opacity)
                     _beatLed.Opacity = 0.3;
                 }
             });
@@ -2587,16 +2586,16 @@ namespace DMVideoPlayer
         }
 
         /// <summary>
-        /// Masque progressivement les composants les moins importants du ControlsOverlay
-        /// (dans l'ordre : balance, piste audio, sous-titres, position/durée) lorsque
-        /// la largeur disponible ne permet plus de tous les afficher.
+        /// Progressively hides the least important components of the ControlsOverlay
+        /// (in order: balance, audio track, subtitles, position/duration) when
+        /// the available width no longer allows all of them to be displayed.
         /// </summary>
         private void AdjustControlsOverlayLayout()
         {
             if (_compactControlsRow == null || _essentialButtonsPanel == null || _volumeGroupPanel == null)
                 return;
 
-            // Réaffiche tout par défaut avant de recalculer ce qui doit être masqué.
+            // Show everything by default before recalculating what needs to be hidden.
             SetBalanceGroupVisible(true);
             if (_audioTrackButton != null)
                 _audioTrackButton.IsVisible = true;
@@ -2616,7 +2615,7 @@ namespace DMVideoPlayer
                 if (_timeDisplayPanel?.IsVisible == true)
                     width += MeasureDesiredWidth(_timeDisplayPanel);
 
-                width += SpacerColumnWidth; // Espace fixe entre bloc 1 et bloc sélection
+                width += SpacerColumnWidth; // Fixed space between block 1 and selection block
 
                 if ((_audioTrackButton?.IsVisible ?? false) || (_subtitleButton?.IsVisible ?? false))
                     width += MeasureDesiredWidth(_selectionGroupPanel);
