@@ -1,6 +1,6 @@
 ﻿# DM Video Player
 
-![main window screenshot](main_window.png) ![settings window screenshot](setting_window.png)
+![main window screenshot](main_window.png) ![settings window screenshot](settings_windows.png)
 
 🎶 **DM Video Player** is a classic minimalist video player based on VLC. 
 It allows you to dynamically add extra audio tracks to your videos, making it especially useful for musicians and those with hearing impairments.
